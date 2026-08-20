@@ -113,36 +113,49 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
                             it for {episode.title.toLowerCase()}.
                           </Text>
                         ) : (
-                          <Text size="2" color="gray" className={styles.quote}>
-                            {task.evidence}
-                          </Text>
-                        )}
-
-                        {threads.get(task.id)?.map((update) => (
-                          <div key={update.id} className={styles.update}>
-                            <Text size="1" color="gray">
-                              {ROLES[update.authorRole].long} · {whenDue(update.createdAt)}
-                              {update.kind !== "typed" && ` · ${update.kind}`}
+                          <blockquote className={styles.quote}>
+                            <Text size="1" color="gray" className={styles.quoteLabel}>
+                              From the discharge conversation
                             </Text>
                             <Text as="p" size="2">
-                              {update.text}
+                              {task.evidence}
                             </Text>
+                          </blockquote>
+                        )}
+
+                        <section className={styles.updates}>
+                          <Text size="1" weight="medium" className={styles.updatesLabel}>
+                            Updates
+                          </Text>
+
+                          {threads.get(task.id)?.map((update) => (
+                            <div key={update.id} className={styles.update}>
+                              <Text size="1" color="gray">
+                                {ROLES[update.authorRole].long} · {whenDue(update.createdAt)}
+                                {update.kind !== "typed" && ` · ${update.kind}`}
+                              </Text>
+                              <Text as="p" size="2">
+                                {update.text}
+                              </Text>
+                            </div>
+                          ))}
+
+                          <div className={styles.composerSlot}>
+                            <TaskComposer
+                              taskId={task.id}
+                              taskTitle={task.title}
+                              authorRole={current}
+                            />
                           </div>
-                        ))}
+                        </section>
 
-                        <div className={styles.actions}>
-                          <TaskComposer
-                            taskId={task.id}
-                            taskTitle={task.title}
-                            authorRole={current}
-                          />
-
-                          <form action={completeTask.bind(null, task.id)}>
-                            <Button type="submit" size="1" variant="surface" color="gray">
-                              Mark done
-                            </Button>
-                          </form>
-                        </div>
+                        {/* The task itself, not its thread — so it sits outside the
+                            updates panel and is the only bordered button here. */}
+                        <form action={completeTask.bind(null, task.id)} className={styles.taskAction}>
+                          <Button type="submit" size="1" variant="surface" color="gray">
+                            Mark done
+                          </Button>
+                        </form>
                       </div>
                     </details>
                   </li>

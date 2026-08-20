@@ -33,6 +33,18 @@ const patients = [
   },
 ];
 
+// What the conversation said about each step, in the shape extract-facts returns:
+// a short verbatim statement, not a description of the task. A step missing from
+// this map is a gap — nobody raised it, so the task has nothing behind it.
+const saidAtDischarge: Record<string, string> = {
+  "medication-review": "GP asked to review the full medication list within two weeks.",
+  "orthostatic-bp": "Lying and standing blood pressure to be checked at the GP review.",
+  "home-hazard-assessment": "District nurse to look at the hallway and stairs.",
+  "strength-balance-referral": "Referred to the falls prevention group at the rehab centre.",
+  "bone-health-review": "Alendronate once weekly, fracture risk to be reviewed.",
+  "falls-follow-up": "Follow-up with the GP booked in four weeks.",
+};
+
 await db.delete(episodes);
 
 for (const { progress, gap, dischargedDaysAgo, ...episodeValues } of patients) {
@@ -55,7 +67,7 @@ for (const { progress, gap, dischargedDaysAgo, ...episodeValues } of patients) {
       assigneeRole: step.role,
       dueAt: daysAgo(dischargedDaysAgo - step.dueInDays),
       status: progress[step.id] ?? "open",
-      evidence: step.id === gap ? "" : "Arranged at discharge.",
+      evidence: step.id === gap ? "" : saidAtDischarge[step.id],
       sopStepId: step.id,
       source: "sop" as const,
     })),

@@ -144,13 +144,42 @@
   padding-left: 0.875rem;
 }
 
+.quoteLabel {
+  display: block;
+  margin-bottom: 0.125rem;
+}
+
+/* Everything the thread owns sits under one label, delimited by hairlines, so
+   adding an update reads as a different kind of act from completing the task. */
+.updates {
+  width: 100%;
+}
+
+.updatesLabel {
+  display: block;
+  padding-bottom: 0.375rem;
+  border-bottom: 1px solid var(--gray-4);
+  color: var(--gray-10);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 .update {
   display: flex;
   flex-direction: column;
   gap: 0.125rem;
+  padding: 0.625rem 0;
+  border-bottom: 1px solid var(--gray-3);
+}
+
+.composerSlot {
+  padding-top: 0.375rem;
+}
+
+.taskAction {
+  display: flex;
+  justify-content: flex-end;
   width: 100%;
-  padding-top: 0.625rem;
-  border-top: 1px solid var(--gray-3);
 }
 
 .empty {
@@ -159,10 +188,3 @@
 
 /* The composer sits inline with Mark done while collapsed, and wraps it onto its
    own line once opened. */
-.actions {
-  display: flex;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  width: 100%;
-}
