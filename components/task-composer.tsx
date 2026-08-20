@@ -20,6 +20,7 @@ export function TaskComposer({
   taskTitle: string;
   authorRole: Role;
 }) {
+  const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   // Whichever input last contributed words decides how the update is filed.
   const [kind, setKind] = useState<UpdateKind>("typed");
@@ -31,6 +32,16 @@ export function TaskComposer({
     setKind(next);
     setText((prev) => (prev ? `${prev} ${chunk}` : chunk));
   };
+
+  // Closed until asked for, which also keeps the speech elements — and the
+  // access token each one mints on upgrade — off every unopened row.
+  if (!open) {
+    return (
+      <Button type="button" size="1" variant="ghost" color="gray" onClick={() => setOpen(true)}>
+        + Add update
+      </Button>
+    );
+  }
 
   return (
     <div className={styles.composer}>
@@ -59,9 +70,6 @@ export function TaskComposer({
           <SegmentedControl.Item value="conversation">Conversation</SegmentedControl.Item>
         </SegmentedControl.Root>
 
-        {/* ponytail: one speech element per row, each minting its own token on
-            upgrade. Fine at a screenful; mount it on <details> toggle if the list
-            ever grows past that. */}
         {mode === "note" ? (
           <Dictation onTranscript={append("dictation")} />
         ) : (
@@ -75,6 +83,17 @@ export function TaskComposer({
         <Button
           type="button"
           size="1"
+          variant="ghost"
+          color="gray"
+          disabled={pending}
+          onClick={() => setOpen(false)}
+        >
+          Cancel
+        </Button>
+
+        <Button
+          type="button"
+          size="1"
           variant="surface"
           color="gray"
           disabled={pending || text.trim() === ""}
@@ -83,6 +102,8 @@ export function TaskComposer({
               await addUpdate({ taskId, kind, text: text.trim(), authorRole, interactionId });
               setText("");
               setKind("typed");
+              setMode("note");
+              setOpen(false);
             })
           }
         >
