@@ -8,18 +8,18 @@
   gap: 0.5rem;
 }
 
-/* Neutral by default — a task closing is the expected outcome, not an event
-   that needs a colour. */
+/* Green for a task that closed, red for one that wouldn't. Both live here and
+   nowhere else on the board, so the row itself stays greyscale. */
 .toast {
   display: flex;
   align-items: flex-start;
   gap: 0.75rem;
   max-width: 24rem;
   padding: 0.75rem 0.875rem;
-  border: 1px solid var(--gray-5);
+  border: 1px solid var(--green-5);
   border-radius: var(--radius-3);
-  background: var(--gray-1);
-  color: var(--gray-12);
+  background: var(--green-2);
+  color: var(--green-11);
   box-shadow: var(--shadow-4);
 }
 
