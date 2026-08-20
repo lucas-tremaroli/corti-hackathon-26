@@ -1,6 +1,10 @@
 [tools]
 bun = "latest"
 
+[tasks.dev]
+description = "Run the app on http://localhost:3000"
+run = "bun run dev"
+
 [tasks.db-up]
 description = "Start local Neo4j"
 run = "docker compose up -d"
