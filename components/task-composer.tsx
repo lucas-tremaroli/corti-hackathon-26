@@ -143,7 +143,7 @@ export function TaskComposer({
         </Button>
       </div>
 
-      <Callout.Root size="1" color="gray" variant="surface">
+      <Callout.Root size="1" color="blue" variant="soft">
         <Callout.Text>{explain(mode, interactionId)}</Callout.Text>
       </Callout.Root>
     </div>
