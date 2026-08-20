@@ -81,7 +81,9 @@ ${JSON.stringify(steps.map(({ id, title, trigger }) => ({ id, title, trigger }))
 Facts extracted from the conversation:
 ${JSON.stringify(facts.map((f) => f.text))}
 
-For each step return "covered" if the facts show it was done, arranged or explicitly discussed, otherwise "gap". Quote the supporting fact verbatim as evidence for covered steps, and use an empty string for gaps.
+A step is "covered" only if a fact says it was performed, arranged, referred, booked or explicitly planned. Naming a symptom, condition or medication the step would address is not enough on its own — that is a "gap", and it is the case that matters most.
+
+Quote the supporting fact verbatim as evidence for covered steps, and use an empty string for gaps.
 Return JSON: {"steps":[{"id","status","evidence"}]}`,
   );
 

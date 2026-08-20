@@ -75,7 +75,7 @@ export async function browserCredentials() {
 
 // Corti Models is OpenAI-compatible and lives on its own host; the SDK has no
 // client for it, so this one stays a raw fetch.
-export async function chat<T>(prompt: string): Promise<T> {
+export async function chat<T>(prompt: string, attempt = 0): Promise<T> {
   const { tenant, environment } = cfg();
   const res = await fetch(`https://ai.${environment}.corti.app/v1/chat/completions`, {
     method: "POST",
@@ -86,10 +86,15 @@ export async function chat<T>(prompt: string): Promise<T> {
     },
     body: JSON.stringify({
       model: "corti-s1",
+      // Same conversation must produce the same board twice running.
+      temperature: 0,
       response_format: { type: "json_object" },
       messages: [{ role: "user", content: prompt }],
     }),
   });
+  // This call is the demo. It 500s occasionally and the identical prompt then
+  // succeeds, so one retry rather than a dead board on stage.
+  if (res.status >= 500 && attempt === 0) return chat<T>(prompt, 1);
   if (!res.ok) throw new Error(`Corti chat ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const { choices } = await res.json();
   return JSON.parse(choices[0].message.content);
