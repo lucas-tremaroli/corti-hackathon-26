@@ -156,6 +156,7 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
                           taskId={task.id}
                           taskTitle={task.title}
                           criteria={sopStep(task.sopStepId)?.closes ?? []}
+                          closure={task.closure}
                         />
                       </div>
                     </details>

@@ -2,33 +2,27 @@
 
 import { Button, Text } from "@radix-ui/themes";
 import { useState, useTransition } from "react";
-import { type Closure, completeTask } from "@/app/actions";
+import { type Completion, completeTask } from "@/app/actions";
+import type { Closure } from "@/lib/sop";
 import { toast } from "./toast";
 import styles from "./complete-task.module.css";
-
-// Naming the criteria that failed is the whole message: a count tells someone
-// they were refused, the list tells them what to go and write.
-function refusal(taskTitle: string, result: Closure) {
-  const unmet = result.criteria.filter((c) => !c.met);
-  return {
-    tone: "error" as const,
-    text: `${taskTitle} stays open. Nothing in the comments shows:`,
-    items: unmet.map((c) => c.text),
-    hint: "Add a comment saying what you did, then mark it done.",
-  };
-}
 
 export function CompleteTask({
   taskId,
   taskTitle,
   criteria,
+  closure,
 }: {
   taskId: string;
   taskTitle: string;
   criteria: string[];
+  // What the last comment on this task showed. Already on the row when it
+  // opens, so the marks don't wait for anyone to press the button.
+  closure: Closure | null;
 }) {
-  const [result, setResult] = useState<Closure | null>(null);
+  const [result, setResult] = useState<Completion | null>(null);
   const [pending, run] = useTransition();
+  const verdicts = result?.criteria ?? closure?.criteria;
 
   return (
     <section className={styles.closure}>
@@ -38,7 +32,7 @@ export function CompleteTask({
 
       <ul className={styles.list}>
         {criteria.map((text, index) => {
-          const verdict = result?.criteria[index];
+          const verdict = verdicts?.[index];
           return (
             <li key={text} className={styles.criterion}>
               {/* Same hollow-to-filled mark as the row gutter: filled means
@@ -71,16 +65,13 @@ export function CompleteTask({
               const next = await completeTask(taskId);
               setResult(next);
               // The marks above already say which criteria failed, so the toast
-              // speaks for the click: the row is gone, or it isn't.
-              if (next.done) {
-                toast({ tone: "neutral", text: `${taskTitle} is closed and out of your inbox.` });
-              } else {
-                toast(refusal(taskTitle, next));
-              }
+              // says what to do about it rather than repeating them.
+              if (next.done) toast(`${taskTitle} is closed and out of your inbox.`);
+              else toast(`${taskTitle} stays open. ${next.missing}`, "error");
             })
           }
         >
-          {pending ? "Checking comments…" : "Mark done"}
+          {pending ? "Closing…" : "Mark done"}
         </Button>
       </div>
     </section>

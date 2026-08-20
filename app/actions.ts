@@ -6,14 +6,7 @@ import { createInteraction, extractFacts, predictCodes } from "@/lib/corti";
 import { db } from "@/lib/db";
 import { getUpdatesFor } from "@/lib/queries";
 import { episodes, type UpdateKind, taskUpdates, tasks } from "@/lib/schema";
-import {
-  checkClosure,
-  classifySteps,
-  type ClosureCheck,
-  type Role,
-  sopForCodes,
-  sopStep,
-} from "@/lib/sop";
+import { checkClosure, classifySteps, type Closure, type Role, sopForCodes, sopStep } from "@/lib/sop";
 
 const addDays = (from: Date, days: number) => new Date(from.getTime() + days * 86_400_000);
 
@@ -63,33 +56,30 @@ export async function approveTasks(taskIds: string[]) {
   refresh();
 }
 
-export type Closure = { done: boolean; criteria: ClosureCheck[] };
+export type Completion = Closure & { done: boolean };
 
 // Marking a task done is a claim that the protocol's criteria were met, and the
-// comments on the task are the only record of that. Corti reads them, and the
-// claim is refused if they don't back it — the refusal names what's missing.
-export async function completeTask(taskId: string): Promise<Closure> {
+// comments on the task are the only record of that. The reading of that record
+// already happened — every comment updates task.closure — so this is a
+// comparison, not a call to Corti.
+export async function completeTask(taskId: string): Promise<Completion> {
   const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId));
   if (!task) throw new Error("No such task");
 
   const step = sopStep(task.sopStepId);
-  // ponytail: a task that didn't come from a protocol has nothing to check
-  // against, so it closes on the assignee's word.
-  if (!step) {
-    await db.update(tasks).set({ status: "done" }).where(eq(tasks.id, taskId));
-    refresh();
-    return { done: true, criteria: [] };
-  }
+  // ponytail: a task that didn't come from a protocol has no criteria to check
+  // against, so it closes on the assignee's word. A task with no comments yet
+  // gets the empty verdict — checkClosure answers that one without a round trip.
+  const closure: Closure = step
+    ? (task.closure ?? (await checkClosure(step, [])))
+    : { criteria: [], missing: "" };
 
-  const comments = (await getUpdatesFor([taskId])).get(taskId) ?? [];
-  const criteria = await checkClosure(step, comments.map((c) => c.text));
-  const done = criteria.every((c) => c.met);
-
+  const done = closure.criteria.every((c) => c.met);
   if (done) {
     await db.update(tasks).set({ status: "done" }).where(eq(tasks.id, taskId));
     refresh();
   }
-  return { done, criteria };
+  return { ...closure, done };
 }
 
 // Call before mounting <Ambient>; hand the result straight to its interactionId.
@@ -106,9 +96,26 @@ export async function addUpdate(input: {
   authorRole: Role;
   interactionId?: string;
 }) {
-  // ponytail: a two-word "done" has no facts worth extracting and costs a
-  // roundtrip. Drop the threshold if the demo needs facts on every update.
-  const facts = input.text.length > 60 ? await extractFacts(input.text) : null;
-  await db.insert(taskUpdates).values({ ...input, facts });
+  const [[task], threads] = await Promise.all([
+    db.select().from(tasks).where(eq(tasks.id, input.taskId)),
+    getUpdatesFor([input.taskId]),
+  ]);
+  const step = task ? sopStep(task.sopStepId) : null;
+  const comments = [...(threads.get(input.taskId) ?? []).map((c) => c.text), input.text];
+
+  // Both readings of this comment happen here, while the composer is already
+  // showing "Saving…". Re-reading the thread against the protocol now is what
+  // makes Mark done a comparison later instead of a wait.
+  const [facts, closure] = await Promise.all([
+    // ponytail: a two-word "done" has no facts worth extracting and costs a
+    // roundtrip. Drop the threshold if the demo needs facts on every update.
+    input.text.length > 60 ? extractFacts(input.text) : null,
+    step ? checkClosure(step, comments) : null,
+  ]);
+
+  await Promise.all([
+    db.insert(taskUpdates).values({ ...input, facts }),
+    closure ? db.update(tasks).set({ closure }).where(eq(tasks.id, input.taskId)) : null,
+  ]);
   refresh();
 }

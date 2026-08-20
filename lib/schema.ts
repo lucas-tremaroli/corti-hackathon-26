@@ -1,6 +1,6 @@
 import { jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import type { Code, Fact } from "./corti";
-import type { Role } from "./sop";
+import type { Closure, Role } from "./sop";
 
 export const episodes = pgTable("episodes", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -22,6 +22,9 @@ export const tasks = pgTable("tasks", {
   dueAt: timestamp("due_at", { withTimezone: true }).notNull(),
   status: text("status").$type<TaskStatus>().notNull().default("proposed"),
   evidence: text("evidence").notNull().default(""),
+  // Recomputed every time a comment lands, so closing a task is a comparison
+  // rather than a call to Corti. Null until the first comment.
+  closure: jsonb("closure").$type<Closure>(),
   sopStepId: text("sop_step_id"),
   source: text("source").$type<TaskSource>().notNull(),
 });

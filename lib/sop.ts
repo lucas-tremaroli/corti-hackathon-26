@@ -34,7 +34,9 @@ export const POST_FALL_DISCHARGE = {
       trigger: "Any new medication started, or existing sedating, hypotensive or anticoagulant medication.",
       closes: [
         "The full medication list was reviewed with the patient.",
-        "Every sedating, hypotensive or anticoagulant medicine has a decision recorded — continued, changed or stopped.",
+        // Bounded by what the notes mention: "every anticoagulant" can't be
+        // confirmed from a note that doesn't happen to name one.
+        "Each sedating, blood-pressure or blood-thinning medicine mentioned has a decision recorded — continued, changed or stopped.",
       ],
     },
     {
@@ -106,17 +108,23 @@ export const sopStep = (stepId: string | null) =>
   POST_FALL_DISCHARGE.steps.find((s) => s.id === stepId) ?? null;
 
 export type ClosureCheck = { text: string; met: boolean; evidence: string };
+export type Closure = { criteria: ClosureCheck[]; missing: string };
 
 // The protocol says what closing a step means; the comments on the task are the
 // only record of what was actually done. This reads one against the other.
-export async function checkClosure(
-  step: SopStep,
-  comments: string[],
-): Promise<ClosureCheck[]> {
+export async function checkClosure(step: SopStep, comments: string[]): Promise<Closure> {
   // An empty thread can't satisfy anything, and asking costs a round trip.
-  if (comments.length === 0) return step.closes.map((text) => ({ text, met: false, evidence: "" }));
+  if (comments.length === 0) {
+    return {
+      criteria: step.closes.map((text) => ({ text, met: false, evidence: "" })),
+      missing: "Nothing has been recorded on this task yet.",
+    };
+  }
 
-  const raw = await chat<{ criteria?: { index?: number; met?: boolean; evidence?: string }[] }>(
+  const raw = await chat<{
+    criteria?: { index?: number; met?: boolean; evidence?: string }[];
+    missing?: string;
+  }>(
     `You are checking whether the notes recorded on a care task show that it can be closed.
 
 Task: ${step.title}
@@ -130,10 +138,13 @@ ${JSON.stringify(comments)}
 A criterion is met only if a note says the thing was actually done, measured or decided. An intention, a plan to do it later, or a note that only names the problem does not meet it.
 
 Quote the supporting note verbatim as evidence for met criteria, and use an empty string otherwise.
-Return JSON: {"criteria":[{"index","met","evidence"}]}`,
+
+Also write "missing": one sentence of at most twenty words telling the clinician what to write next. Speak to the distance between what the notes already say and what actually has to have happened, in this patient's own specifics. The criteria are on screen beside your sentence, so do not restate, paraphrase, list or count them, and do not open with "Please". If every criterion is met, use an empty string.
+
+Return JSON: {"criteria":[{"index","met","evidence"}],"missing":""}`,
   );
 
-  return step.closes.map((text, index) => {
+  const criteria = step.closes.map((text, index) => {
     const verdict = raw.criteria?.find((c) => c.index === index);
     const evidence = typeof verdict?.evidence === "string" ? verdict.evidence : "";
     // "met" with nothing to quote is the model being agreeable, and unmet is the
@@ -141,6 +152,15 @@ Return JSON: {"criteria":[{"index","met","evidence"}]}`,
     // that never happened.
     return { text, met: verdict?.met === true && evidence !== "", evidence };
   });
+
+  return {
+    criteria,
+    // Our own marks decide whether it closes; this sentence only explains it.
+    missing:
+      typeof raw.missing === "string" && raw.missing !== ""
+        ? raw.missing
+        : "The comments don't yet show this was done.",
+  };
 }
 
 export type StepVerdict = { id: string; status: "covered" | "gap"; evidence: string };

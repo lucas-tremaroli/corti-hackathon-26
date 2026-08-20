@@ -54,8 +54,6 @@ export async function createInteraction(identifier: string, title: string) {
   return interactionId;
 }
 
-// ponytail: no cache — the SDK caches tokens for its own calls, and this is only
-// hit by the chat passthrough and the websocket route. Memoize if it gets hot.
 async function issueToken() {
   const { tenant, clientId, clientSecret } = cfg();
   return corti().auth.token(tenant, {
@@ -65,7 +63,17 @@ async function issueToken() {
   });
 }
 
-const accessToken = async () => (await issueToken()).accessToken;
+// Every browser handoff gets a fresh token — they leave the server and have to
+// outlive the session they're handed to. Only our own calls reuse one.
+let cached: { token: string; expiresAt: number } | null = null;
+
+async function accessToken() {
+  if (cached && Date.now() < cached.expiresAt) return cached.token;
+  const { accessToken, expiresIn } = await issueToken();
+  // A minute of slack, so a token can't expire between here and the request.
+  cached = { token: accessToken, expiresAt: Date.now() + (expiresIn - 60) * 1000 };
+  return accessToken;
+}
 
 export async function browserCredentials() {
   const { tenant, environment } = cfg();

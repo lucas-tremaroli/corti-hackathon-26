@@ -49,21 +49,31 @@ const planned = await checkClosure(step, [
   "Booked Mrs Jensen in for a medication review at the end of the month.",
 ]);
 assert.ok(
-  planned.every((c) => !c.met),
+  planned.criteria.every((c) => !c.met),
   "a booking is a plan, not a completed review — must not close the task",
 );
+console.log(`missing: ${planned.missing}`);
+// The criteria are on screen beside this sentence, so echoing them back is the
+// one thing it must not do.
+for (const c of planned.criteria) {
+  assert.ok(!planned.missing.includes(c.text), "the message must not repeat a criterion verbatim");
+}
+// Sits next to the criteria in a toast. Anything longer is a restatement of them.
+assert.ok(planned.missing.length < 140, `the message is too long: ${planned.missing.length} chars`);
 
 const performed = await checkClosure(step, [
   "Went through the whole medication list with her today. Stopped the zopiclone, halved the ramipril because she was dizzy standing up, kept the alendronate as it is.",
 ]);
 console.log("closure:");
-for (const c of performed) console.log(`  ${c.met ? "met " : "open"}  ${c.text}  ${c.evidence}`);
+for (const c of performed.criteria) {
+  console.log(`  ${c.met ? "met " : "open"}  ${c.text}  ${c.evidence}`);
+}
 assert.ok(
-  performed.every((c) => c.met),
+  performed.criteria.every((c) => c.met),
   "a review that names every decision must close the task",
 );
 assert.ok(
-  performed.every((c) => c.evidence !== ""),
+  performed.criteria.every((c) => c.evidence !== ""),
   "a met criterion with nothing quoted is not evidence of anything",
 );
 
