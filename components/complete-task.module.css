@@ -50,3 +50,38 @@
   display: flex;
   justify-content: flex-end;
 }
+
+/* Out of the row entirely: a refused click is about the click, not about the
+   task, and the criteria marks above already carry the detail. */
+.toast {
+  position: fixed;
+  right: 1.5rem;
+  bottom: 1.5rem;
+  z-index: 10;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  max-width: 24rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--red-5);
+  border-radius: var(--radius-3);
+  background: var(--red-2);
+  color: var(--red-11);
+  box-shadow: var(--shadow-4);
+}
+
+.dismiss {
+  flex: none;
+  padding: 0 0.125rem;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: var(--font-size-1);
+  line-height: 1.4;
+  color: var(--red-9);
+  cursor: pointer;
+}
+
+.dismiss:hover {
+  color: var(--red-11);
+}

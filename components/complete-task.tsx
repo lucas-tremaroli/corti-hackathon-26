@@ -1,15 +1,27 @@
 "use client";
 
-import { Button, Callout, Text } from "@radix-ui/themes";
-import { useState, useTransition } from "react";
+import { Button, Text } from "@radix-ui/themes";
+import { useEffect, useState, useTransition } from "react";
 import { type Closure, completeTask } from "@/app/actions";
 import styles from "./complete-task.module.css";
 
+function refusal(result: Closure) {
+  const unmet = result.criteria.filter((c) => !c.met).length;
+  return `${unmet === 1 ? "One criterion has" : `${unmet} criteria have`} nothing in the comments behind ${unmet === 1 ? "it" : "them"} yet. Record what happened, then mark it done.`;
+}
+
 export function CompleteTask({ taskId, criteria }: { taskId: string; criteria: string[] }) {
   const [result, setResult] = useState<Closure | null>(null);
+  // ponytail: one toast per task row, because only one Mark done can be in
+  // flight. Two rows refused at once would stack on top of each other.
+  const [toast, setToast] = useState<{ text: string; id: number } | null>(null);
   const [pending, run] = useTransition();
 
-  const unmet = result?.criteria.filter((c) => !c.met).length ?? 0;
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 8000);
+    return () => clearTimeout(timer);
+  }, [toast]);
 
   return (
     <section className={styles.closure}>
@@ -40,15 +52,6 @@ export function CompleteTask({ taskId, criteria }: { taskId: string; criteria: s
         })}
       </ul>
 
-      {result && !result.done && (
-        <Callout.Root size="1" color="blue" variant="soft">
-          <Callout.Text>
-            {unmet === 1 ? "One criterion has" : `${unmet} criteria have`} nothing in the comments
-            behind {unmet === 1 ? "it" : "them"} yet. Record what happened, then mark it done.
-          </Callout.Text>
-        </Callout.Root>
-      )}
-
       <div className={styles.action}>
         <Button
           type="button"
@@ -56,11 +59,33 @@ export function CompleteTask({ taskId, criteria }: { taskId: string; criteria: s
           variant="surface"
           color="gray"
           disabled={pending}
-          onClick={() => run(async () => setResult(await completeTask(taskId)))}
+          onClick={() =>
+            run(async () => {
+              const next = await completeTask(taskId);
+              setResult(next);
+              // The marks above already say which criteria failed; the toast is
+              // for the click that didn't do what the button promised.
+              setToast(next.done ? null : { text: refusal(next), id: Date.now() });
+            })
+          }
         >
           {pending ? "Checking comments…" : "Mark done"}
         </Button>
       </div>
+
+      {toast && (
+        <div className={styles.toast} role="alert">
+          <Text size="2">{toast.text}</Text>
+          <button
+            type="button"
+            className={styles.dismiss}
+            aria-label="Dismiss"
+            onClick={() => setToast(null)}
+          >
+            ✕
+          </button>
+        </div>
+      )}
     </section>
   );
 }
