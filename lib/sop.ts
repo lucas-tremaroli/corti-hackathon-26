@@ -1,3 +1,5 @@
+import { chat } from "./corti";
+
 export type Role = "GP" | "MunicipalNursing" | "MunicipalRehab" | "Hospital";
 
 export type SopStep = {
@@ -62,4 +64,35 @@ export const POST_FALL_DISCHARGE = {
 export function sopForCodes(codes: string[]) {
   const hit = codes.some((c) => POST_FALL_DISCHARGE.icd10Prefixes.some((p) => c.startsWith(p)));
   return hit ? POST_FALL_DISCHARGE : null;
+}
+
+export type StepVerdict = { id: string; status: "covered" | "gap"; evidence: string };
+
+export async function classifySteps(
+  steps: SopStep[],
+  facts: { text: string }[],
+): Promise<StepVerdict[]> {
+  const raw = await chat<{ steps?: { id?: string; status?: string; evidence?: string }[] }>(
+    `You are checking whether a discharge conversation covered each step of a care protocol.
+
+Protocol steps:
+${JSON.stringify(steps.map(({ id, title, trigger }) => ({ id, title, trigger })), null, 2)}
+
+Facts extracted from the conversation:
+${JSON.stringify(facts.map((f) => f.text))}
+
+For each step return "covered" if the facts show it was done, arranged or explicitly discussed, otherwise "gap". Quote the supporting fact verbatim as evidence for covered steps, and use an empty string for gaps.
+Return JSON: {"steps":[{"id","status","evidence"}]}`,
+  );
+
+  // Anything the model omits or garbles falls back to "gap": a false gap is a
+  // redundant task, a false "covered" silently drops care.
+  return steps.map((step) => {
+    const verdict = raw.steps?.find((s) => s.id === step.id);
+    return {
+      id: step.id,
+      status: verdict?.status === "covered" ? "covered" : "gap",
+      evidence: typeof verdict?.evidence === "string" ? verdict.evidence : "",
+    };
+  });
 }

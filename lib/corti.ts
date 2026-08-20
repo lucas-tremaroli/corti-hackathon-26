@@ -1,5 +1,4 @@
-import { CortiClient, CortiEnvironment } from "@corti/sdk";
-import type { SopStep } from "./sop";
+import { type Corti, CortiClient, CortiEnvironment } from "@corti/sdk";
 
 function cfg() {
   const {
@@ -35,6 +34,9 @@ export async function extractFacts(text: string) {
   return facts;
 }
 
+export type Fact = Corti.FactsExtractResponseFactsItem;
+export type Code = Corti.CodesGeneralReadResponse;
+
 export async function predictCodes(text: string) {
   const { codes } = await corti().codes.predict({
     system: ["icd10int-inpatient", "snomedctdk"],
@@ -43,26 +45,37 @@ export async function predictCodes(text: string) {
   return codes;
 }
 
+// Ambient streaming attaches to an interaction; dictation does not. The task id
+// becomes the encounter identifier so a stream is traceable back to the work.
+export async function createInteraction(identifier: string, title: string) {
+  const { interactionId } = await corti().interactions.create({
+    encounter: { identifier, title, status: "in-progress", type: "consultation" },
+  });
+  return interactionId;
+}
+
 // ponytail: no cache — the SDK caches tokens for its own calls, and this is only
 // hit by the chat passthrough and the websocket route. Memoize if it gets hot.
-async function accessToken() {
+async function issueToken() {
   const { tenant, clientId, clientSecret } = cfg();
-  const { accessToken } = await corti().auth.token(tenant, {
+  return corti().auth.token(tenant, {
     clientId,
     clientSecret,
     grantType: "client_credentials",
   });
-  return accessToken;
 }
+
+const accessToken = async () => (await issueToken()).accessToken;
 
 export async function browserCredentials() {
   const { tenant, environment } = cfg();
-  return { token: await accessToken(), tenantName: tenant, environment };
+  const { accessToken, expiresIn } = await issueToken();
+  return { token: accessToken, expiresIn, tenantName: tenant, environment };
 }
 
 // Corti Models is OpenAI-compatible and lives on its own host; the SDK has no
 // client for it, so this one stays a raw fetch.
-async function chat<T>(prompt: string): Promise<T> {
+export async function chat<T>(prompt: string): Promise<T> {
   const { tenant, environment } = cfg();
   const res = await fetch(`https://ai.${environment}.corti.app/v1/chat/completions`, {
     method: "POST",
@@ -82,33 +95,3 @@ async function chat<T>(prompt: string): Promise<T> {
   return JSON.parse(choices[0].message.content);
 }
 
-export type StepVerdict = { id: string; status: "covered" | "gap"; evidence: string };
-
-export async function classifySteps(
-  steps: SopStep[],
-  facts: { text: string }[],
-): Promise<StepVerdict[]> {
-  const raw = await chat<{ steps?: { id?: string; status?: string; evidence?: string }[] }>(
-    `You are checking whether a discharge conversation covered each step of a care protocol.
-
-Protocol steps:
-${JSON.stringify(steps.map(({ id, title, trigger }) => ({ id, title, trigger })), null, 2)}
-
-Facts extracted from the conversation:
-${JSON.stringify(facts.map((f) => f.text))}
-
-For each step return "covered" if the facts show it was done, arranged or explicitly discussed, otherwise "gap". Quote the supporting fact verbatim as evidence for covered steps, and use an empty string for gaps.
-Return JSON: {"steps":[{"id","status","evidence"}]}`,
-  );
-
-  // Anything the model omits or garbles falls back to "gap": a false gap is a
-  // redundant task, a false "covered" silently drops care.
-  return steps.map((step) => {
-    const verdict = raw.steps?.find((s) => s.id === step.id);
-    return {
-      id: step.id,
-      status: verdict?.status === "covered" ? "covered" : "gap",
-      evidence: typeof verdict?.evidence === "string" ? verdict.evidence : "",
-    };
-  });
-}

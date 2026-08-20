@@ -1,6 +1,6 @@
 import assert from "node:assert";
-import { classifySteps, extractFacts, predictCodes } from "./corti";
-import { POST_FALL_DISCHARGE, sopForCodes } from "./sop";
+import { extractFacts, predictCodes } from "../lib/corti";
+import { classifySteps, POST_FALL_DISCHARGE, sopForCodes } from "../lib/sop";
 
 const transcript = `Right, so before you go home Mrs Jensen. You had the fall last Tuesday at home, tripped on the rug in the hallway, and you fractured your left hip. The operation went well and the hip is healing nicely. I've got you on the alendronate now, once a week, for the bones. And I've been a bit dizzy in the mornings, when I get up out of bed. Right. And you live on your own, is that right? Yes, on my own since my husband passed.`;
 
