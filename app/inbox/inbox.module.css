@@ -130,13 +130,20 @@
   color: var(--red-11);
 }
 
+/* Indented to sit under the title, past the gutter mark, but otherwise the full
+   width of the row — the thread and the composer need the room. */
 .body {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 0.875rem;
-  padding: 0.25rem 0 1.25rem 2.5rem;
-  max-width: 34rem;
+  padding: 0.25rem 0 1.5rem 2.5rem;
+}
+
+/* Prose is the one thing that does not want the full measure. */
+.quote,
+.note {
+  max-width: 42rem;
 }
 
 .quote {

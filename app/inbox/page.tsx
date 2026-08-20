@@ -108,7 +108,7 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
 
                       <div className={styles.body}>
                         {isGap(task) ? (
-                          <Text size="2" color="gray">
+                          <Text as="p" size="2" color="gray" className={styles.note}>
                             Never mentioned in the discharge conversation. The protocol adds
                             it for {episode.title.toLowerCase()}.
                           </Text>
