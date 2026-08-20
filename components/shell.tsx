@@ -2,6 +2,7 @@
 
 import { Text } from "@radix-ui/themes";
 import { type ReactNode, useState } from "react";
+import { Toasts } from "./toast";
 import styles from "./shell.module.css";
 
 export function Shell({ rail, children }: { rail: ReactNode; children: ReactNode }) {
@@ -32,6 +33,7 @@ export function Shell({ rail, children }: { rail: ReactNode; children: ReactNode
       </nav>
 
       <main className={styles.main}>{children}</main>
+      <Toasts />
     </div>
   );
 }

@@ -1,8 +1,9 @@
 "use client";
 
 import { Button, Text } from "@radix-ui/themes";
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { type Closure, completeTask } from "@/app/actions";
+import { toast } from "./toast";
 import styles from "./complete-task.module.css";
 
 function refusal(result: Closure) {
@@ -10,18 +11,17 @@ function refusal(result: Closure) {
   return `${unmet === 1 ? "One criterion has" : `${unmet} criteria have`} nothing in the comments behind ${unmet === 1 ? "it" : "them"} yet. Record what happened, then mark it done.`;
 }
 
-export function CompleteTask({ taskId, criteria }: { taskId: string; criteria: string[] }) {
+export function CompleteTask({
+  taskId,
+  taskTitle,
+  criteria,
+}: {
+  taskId: string;
+  taskTitle: string;
+  criteria: string[];
+}) {
   const [result, setResult] = useState<Closure | null>(null);
-  // ponytail: one toast per task row, because only one Mark done can be in
-  // flight. Two rows refused at once would stack on top of each other.
-  const [toast, setToast] = useState<{ text: string; id: number } | null>(null);
   const [pending, run] = useTransition();
-
-  useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => setToast(null), 8000);
-    return () => clearTimeout(timer);
-  }, [toast]);
 
   return (
     <section className={styles.closure}>
@@ -63,29 +63,16 @@ export function CompleteTask({ taskId, criteria }: { taskId: string; criteria: s
             run(async () => {
               const next = await completeTask(taskId);
               setResult(next);
-              // The marks above already say which criteria failed; the toast is
-              // for the click that didn't do what the button promised.
-              setToast(next.done ? null : { text: refusal(next), id: Date.now() });
+              // The marks above already say which criteria failed, so the toast
+              // speaks for the click: the row is gone, or it isn't.
+              if (next.done) toast(`${taskTitle} is closed and out of your inbox.`);
+              else toast(refusal(next), "error");
             })
           }
         >
           {pending ? "Checking comments…" : "Mark done"}
         </Button>
       </div>
-
-      {toast && (
-        <div className={styles.toast} role="alert">
-          <Text size="2">{toast.text}</Text>
-          <button
-            type="button"
-            className={styles.dismiss}
-            aria-label="Dismiss"
-            onClick={() => setToast(null)}
-          >
-            ✕
-          </button>
-        </div>
-      )}
     </section>
   );
 }

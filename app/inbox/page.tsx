@@ -154,6 +154,7 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
                             protocol rather than taken on trust. */}
                         <CompleteTask
                           taskId={task.id}
+                          taskTitle={task.title}
                           criteria={sopStep(task.sopStepId)?.closes ?? []}
                         />
                       </div>
