@@ -6,9 +6,16 @@ import { type Closure, completeTask } from "@/app/actions";
 import { toast } from "./toast";
 import styles from "./complete-task.module.css";
 
-function refusal(result: Closure) {
-  const unmet = result.criteria.filter((c) => !c.met).length;
-  return `${unmet === 1 ? "One criterion has" : `${unmet} criteria have`} nothing in the comments behind ${unmet === 1 ? "it" : "them"} yet. Record what happened, then mark it done.`;
+// Naming the criteria that failed is the whole message: a count tells someone
+// they were refused, the list tells them what to go and write.
+function refusal(taskTitle: string, result: Closure) {
+  const unmet = result.criteria.filter((c) => !c.met);
+  return {
+    tone: "error" as const,
+    text: `${taskTitle} stays open. Nothing in the comments shows:`,
+    items: unmet.map((c) => c.text),
+    hint: "Add a comment saying what you did, then mark it done.",
+  };
 }
 
 export function CompleteTask({
@@ -65,8 +72,11 @@ export function CompleteTask({
               setResult(next);
               // The marks above already say which criteria failed, so the toast
               // speaks for the click: the row is gone, or it isn't.
-              if (next.done) toast(`${taskTitle} is closed and out of your inbox.`);
-              else toast(refusal(next), "error");
+              if (next.done) {
+                toast({ tone: "neutral", text: `${taskTitle} is closed and out of your inbox.` });
+              } else {
+                toast(refusal(taskTitle, next));
+              }
             })
           }
         >

@@ -4,13 +4,20 @@ import { Text } from "@radix-ui/themes";
 import { useEffect, useState } from "react";
 import styles from "./toast.module.css";
 
-type Toast = { id: number; text: string; tone: "neutral" | "error" };
+type Toast = {
+  id: number;
+  tone: "neutral" | "error";
+  text: string;
+  // What the message is about, listed, and what to do next.
+  items?: string[];
+  hint?: string;
+};
 
 // Fired from anywhere, rendered once in the shell: a task that closes leaves
 // the board, so its row unmounts before it could say anything.
-export function toast(text: string, tone: Toast["tone"] = "neutral") {
+export function toast(message: Omit<Toast, "id">) {
   window.dispatchEvent(
-    new CustomEvent("careos:toast", { detail: { id: Date.now(), text, tone } }),
+    new CustomEvent("careos:toast", { detail: { ...message, id: Date.now() } }),
   );
 }
 
@@ -38,7 +45,27 @@ export function Toasts() {
           className={`${styles.toast} ${item.tone === "error" ? styles.error : ""}`}
           role={item.tone === "error" ? "alert" : "status"}
         >
-          <Text size="2">{item.text}</Text>
+          <div className={styles.content}>
+            <Text as="p" size="2">
+              {item.text}
+            </Text>
+
+            {item.items && (
+              <ul className={styles.items}>
+                {item.items.map((line) => (
+                  <li key={line}>
+                    <Text size="2">{line}</Text>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {item.hint && (
+              <Text as="p" size="2" className={styles.hint}>
+                {item.hint}
+              </Text>
+            )}
+          </div>
           <button
             type="button"
             className={styles.dismiss}

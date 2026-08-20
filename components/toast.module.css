@@ -23,6 +23,26 @@
   box-shadow: var(--shadow-4);
 }
 
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Bulleted, because these are the specific things the record is missing —
+   running them into a sentence is what made the old message vague. */
+.items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding-left: 1rem;
+  list-style: disc;
+}
+
+.hint {
+  opacity: 0.8;
+}
+
 .error {
   border-color: var(--red-5);
   background: var(--red-2);
