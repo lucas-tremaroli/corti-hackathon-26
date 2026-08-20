@@ -45,8 +45,8 @@ export async function predictCodes(text: string) {
   return codes;
 }
 
-// Ambient streaming attaches to an interaction; dictation does not. The task id
-// becomes the encounter identifier so a stream is traceable back to the work.
+// Ambient streaming attaches to an interaction; dictation does not. The
+// identifier has to be unique across the tenant — Corti 409s on a repeat.
 export async function createInteraction(identifier: string, title: string) {
   const { interactionId } = await corti().interactions.create({
     encounter: { identifier, title, status: "in-progress", type: "consultation" },

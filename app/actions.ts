@@ -61,8 +61,10 @@ export async function completeTask(taskId: string) {
 }
 
 // Call before mounting <Ambient>; hand the result straight to its interactionId.
+// Corti rejects a duplicate encounter identifier, and one task can be recorded
+// more than once, so each session gets its own — task id first to stay traceable.
 export async function startAmbient(taskId: string, taskTitle: string) {
-  return createInteraction(taskId, taskTitle);
+  return createInteraction(`${taskId}:${crypto.randomUUID()}`, taskTitle);
 }
 
 export async function addUpdate(input: {
