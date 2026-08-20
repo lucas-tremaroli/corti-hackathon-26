@@ -10,6 +10,7 @@
     "check": "bun lib/corti.check.ts"
   },
   "dependencies": {
+    "@corti/sdk": "^5.0.0",
     "@neondatabase/serverless": "^1.1.0",
     "@radix-ui/themes": "^3.3.0",
     "drizzle-orm": "^0.45.2",
