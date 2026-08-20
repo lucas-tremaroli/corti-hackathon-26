@@ -1,0 +1,15 @@
+Doctor: Right, Mrs Jensen, before you go home. You had the fall last Tuesday, tripped on the rug in the hallway, and you fractured your left hip.
+Patient: That's right. It all happened so fast.
+Doctor: The operation went well and the hip is healing nicely.
+Doctor: Now, your tablets. I've written to your GP asking her to go through the whole list with you within the fortnight, because a few of them can leave you unsteady on your feet.
+Patient: She's got the list, has she?
+Doctor: She'll have it today.
+Doctor: For the bones, I've started you on alendronate, one tablet a week. And I've asked her to review your fracture risk and your vitamin D at the same appointment.
+Patient: One a week. I'll write that down.
+Doctor: I've also referred you to the falls prevention group at the rehab centre. They'll do strength and balance work with you, and they should be in touch inside the month.
+Patient: I'd like that.
+Doctor: And I've booked you a follow-up with your GP in four weeks, to see how you're getting on after the fall.
+Patient: Doctor, I have been a bit dizzy in the mornings. When I get up out of bed.
+Doctor: Right. And you live on your own, is that right?
+Patient: On my own, yes. Since my husband passed.
+Doctor: Well. The physio will see you before you go, and the porter will take you down. Take care of yourself, Mrs Jensen.

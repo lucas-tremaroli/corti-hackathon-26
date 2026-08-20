@@ -1,17 +1,11 @@
 import assert from "node:assert";
+import { readFileSync } from "node:fs";
 import { extractFacts, predictCodes } from "../lib/corti";
 import { classifySteps, POST_FALL_DISCHARGE, sopForCodes } from "../lib/sop";
 
-// Stand-in for the recording in FORK-31, and it has to behave like the real one:
-// four protocol steps arranged out loud, two raised and then dropped.
-const transcript = `Right, so before you go home Mrs Jensen. You had the fall last Tuesday at home, tripped on the rug in the hallway, and you fractured your left hip. The operation went well and the hip is healing nicely.
-Now, your tablets. I've written to your GP asking her to go through the whole list with you within the fortnight, because a few of them can leave you unsteady on your feet.
-For the bones, I've started you on alendronate, once a week, and I've asked her to review your fracture risk and your vitamin D at the same appointment.
-I've also referred you to the falls prevention group at the rehab centre, so they'll do strength and balance work with you. They should be in touch inside the month.
-And I've booked you a follow-up with your GP in four weeks to see how you're getting on after the fall.
-Patient: I have been a bit dizzy in the mornings, when I get up out of bed.
-Doctor: Right. And you live on your own, is that right?
-Patient: On my own, yes, since my husband passed.`;
+// The demo script itself, so a change to what gets said on stage is a change to
+// what this asserts. Four protocol steps arranged out loud, two raised and dropped.
+const transcript = readFileSync("demo/discharge.txt", "utf8");
 
 const [facts, codes] = await Promise.all([extractFacts(transcript), predictCodes(transcript)]);
 

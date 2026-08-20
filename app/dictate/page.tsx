@@ -46,6 +46,11 @@ export default function VoiceHarnessPage() {
           {starting ? "Creating interaction…" : "Start ambient session"}
         </button>
       )}
+      {/* Turn on virtual mode in the component's settings to capture this tab's
+          audio, then hit play — no second device, no room noise. */}
+      <audio controls src="/discharge.m4a" style={box}>
+        <track kind="captions" />
+      </audio>
       <textarea value={heard} readOnly rows={6} style={box} placeholder="Conversation appears here…" />
       <ul>
         {facts.map((f) => (
