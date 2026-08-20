@@ -104,7 +104,24 @@ export async function chat<T>(prompt: string, attempt = 0): Promise<T> {
   // succeeds, so one retry rather than a dead board on stage.
   if (res.status >= 500 && attempt === 0) return chat<T>(prompt, 1);
   if (!res.ok) throw new Error(`Corti chat ${res.status}: ${(await res.text()).slice(0, 300)}`);
+
+  // A 200 can still carry no answer: content comes back null when the model
+  // stops early, and JSON.parse(null) is null, not a throw. Every caller reads
+  // fields off this, so it either hands back an object or it fails here.
   const { choices } = await res.json();
-  return JSON.parse(choices[0].message.content);
+  const content = choices?.[0]?.message?.content;
+  const parsed = typeof content === "string" ? tryParse(content) : null;
+  if (parsed) return parsed as T;
+  if (attempt === 0) return chat<T>(prompt, 1);
+  throw new Error(`Corti chat returned no usable JSON: ${String(content).slice(0, 200)}`);
+}
+
+function tryParse(text: string) {
+  try {
+    const value = JSON.parse(text);
+    return typeof value === "object" && value !== null ? value : null;
+  } catch {
+    return null;
+  }
 }
 

@@ -106,11 +106,13 @@ export async function addUpdate(input: {
   // Both readings of this comment happen here, while the composer is already
   // showing "Saving…". Re-reading the thread against the protocol now is what
   // makes Mark done a comparison later instead of a wait.
+  // Neither reading is allowed to cost someone the words they just spoke, so a
+  // Corti failure here leaves the comment saved and the previous verdict standing.
   const [facts, closure] = await Promise.all([
     // ponytail: a two-word "done" has no facts worth extracting and costs a
     // roundtrip. Drop the threshold if the demo needs facts on every update.
-    input.text.length > 60 ? extractFacts(input.text) : null,
-    step ? checkClosure(step, comments) : null,
+    input.text.length > 60 ? extractFacts(input.text).catch(() => null) : null,
+    step ? checkClosure(step, comments).catch(() => null) : null,
   ]);
 
   await Promise.all([
