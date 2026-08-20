@@ -1,0 +1,86 @@
+.page {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 3rem 1.5rem 6rem;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 4rem;
+}
+
+/* Deliberately not a brand colour. Red on this page means late, and only that. */
+.wordmark {
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--gray-11);
+}
+
+.list {
+  list-style: none;
+  margin-top: 2.5rem;
+  border-top: 1px solid var(--gray-4);
+}
+
+.row {
+  border-bottom: 1px solid var(--gray-4);
+}
+
+.summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 1.125rem 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.summary::-webkit-details-marker {
+  display: none;
+}
+
+.summary:focus-visible {
+  outline: 2px solid var(--gray-8);
+  outline-offset: 3px;
+}
+
+.subject {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.due {
+  font-family: var(--code-font-family);
+  font-size: var(--font-size-1);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--gray-10);
+}
+
+.late {
+  color: var(--red-11);
+}
+
+.body {
+  padding: 0 0 1.5rem;
+  max-width: 34rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.quote {
+  border-left: 2px solid var(--gray-5);
+  padding-left: 0.875rem;
+}
+
+.empty {
+  margin-top: 3rem;
+}

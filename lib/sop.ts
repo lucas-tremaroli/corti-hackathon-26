@@ -2,6 +2,13 @@ import { chat } from "./corti";
 
 export type Role = "GP" | "MunicipalNursing" | "MunicipalRehab" | "Hospital";
 
+export const ROLES: Record<Role, { short: string; long: string }> = {
+  GP: { short: "GP", long: "General practice" },
+  MunicipalNursing: { short: "Nursing", long: "Municipal nursing" },
+  MunicipalRehab: { short: "Rehab", long: "Municipal rehab" },
+  Hospital: { short: "Hospital", long: "Hospital" },
+};
+
 export type SopStep = {
   id: string;
   title: string;
