@@ -1,7 +1,7 @@
 "use client";
 
 import { Button, SegmentedControl, Text, TextArea } from "@radix-ui/themes";
-import { useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { addUpdate, startAmbient } from "@/app/actions";
 import type { Role } from "@/lib/sop";
 import type { UpdateKind } from "@/lib/schema";
@@ -33,6 +33,28 @@ export function TaskComposer({
     setText((prev) => (prev ? `${prev} ${chunk}` : chunk));
   };
 
+  // Minting the interaction is a round trip to Corti, so do it while the user is
+  // still reading the row rather than after they ask to record. Guarded by a ref
+  // so a re-render can't fire off a second one.
+  const starting = useRef(false);
+  const ensureInteraction = useCallback(() => {
+    if (starting.current) return;
+    starting.current = true;
+    startAmbient(taskId, taskTitle)
+      .then(setInteractionId)
+      .catch(() => {
+        starting.current = false;
+      });
+  }, [taskId, taskTitle]);
+
+  useEffect(() => {
+    if (!open) return;
+    // Warm the element definition too — otherwise the mic paints a chunk-load
+    // after the toggle instead of with it.
+    void import("@corti/ambient-web");
+    ensureInteraction();
+  }, [open, ensureInteraction]);
+
   // Closed until asked for, which also keeps the speech elements — and the
   // access token each one mints on upgrade — off every unopened row.
   if (!open) {
@@ -61,9 +83,8 @@ export function TaskComposer({
           value={mode}
           onValueChange={(next) => {
             setMode(next as Mode);
-            if (next === "conversation" && !interactionId) {
-              run(async () => setInteractionId(await startAmbient(taskId, taskTitle)));
-            }
+            // Normally already done on open; this only matters if that failed.
+            if (next === "conversation" && !interactionId) ensureInteraction();
           }}
         >
           <SegmentedControl.Item value="note">Note</SegmentedControl.Item>
