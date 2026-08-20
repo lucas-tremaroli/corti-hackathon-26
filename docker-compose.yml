@@ -1,0 +1,16 @@
+# Local Neo4j for development. Aura is the alternative if we need a shared
+# instance before the demo; nothing in lib/graph.ts assumes local.
+services:
+  neo4j:
+    image: neo4j:5-community
+    ports:
+      - "7474:7474" # browser — http://localhost:7474
+      - "7687:7687" # bolt
+    environment:
+      # ponytail: one hardcoded dev password. It never leaves this machine.
+      NEO4J_AUTH: neo4j/careos-dev
+    volumes:
+      - neo4j-data:/data
+
+volumes:
+  neo4j-data:

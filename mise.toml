@@ -1,2 +1,26 @@
 [tools]
 bun = "latest"
+
+[tasks.db-up]
+description = "Start local Neo4j"
+run = "docker compose up -d"
+
+[tasks.db-down]
+description = "Stop local Neo4j, keeping its data"
+run = "docker compose stop"
+
+[tasks.db-reset]
+description = "Stop local Neo4j and throw away the graph"
+run = "docker compose down -v"
+
+[tasks.db-shell]
+description = "Cypher shell against local Neo4j"
+run = "docker compose exec neo4j cypher-shell -u neo4j -p careos-dev"
+
+[tasks.graph-init]
+description = "Apply graph constraints and indexes (idempotent)"
+run = "bun scripts/graph-init.ts"
+
+[tasks.check]
+description = "Live check against Corti and the graph"
+run = "bun scripts/check.ts"
