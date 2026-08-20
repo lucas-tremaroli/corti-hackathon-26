@@ -1,7 +1,8 @@
-import { Heading, Text } from "@radix-ui/themes";
-import { RoleSwitcher } from "@/components/role-switcher";
-import { getInbox } from "@/lib/queries";
-import { isGap, isOverdue } from "@/lib/schema";
+import { Button, Heading, Text } from "@radix-ui/themes";
+import Link from "next/link";
+import { completeTask } from "@/app/actions";
+import { getInbox, getRoleCounts } from "@/lib/queries";
+import { type Episode, isGap, isOverdue, type Task } from "@/lib/schema";
 import { ROLES, type Role } from "@/lib/sop";
 import styles from "./inbox.module.css";
 
@@ -13,74 +14,126 @@ function whenDue(date: Date) {
   return relative.format(Math.round((date.getTime() - Date.now()) / 86_400_000), "day");
 }
 
+// One section per patient — the question a clinician actually holds in their
+// head is "what does Mrs Jensen still need", not "what is late everywhere".
+// Rows arrive due-first, so insertion order puts the most urgent patient on top.
+function byPatient(rows: { task: Task; episode: Episode }[]) {
+  const groups = new Map<string, { episode: Episode; tasks: Task[] }>();
+  for (const { task, episode } of rows) {
+    const group = groups.get(episode.id) ?? { episode, tasks: [] };
+    group.tasks.push(task);
+    groups.set(episode.id, group);
+  }
+  return [...groups.values()];
+}
+
 export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
   const { role } = await searchParams;
   const current = (typeof role === "string" && role in ROLES ? role : "MunicipalNursing") as Role;
 
-  const rows = await getInbox(current);
-  const open = rows.filter(({ task }) => task.status !== "done");
-  const overdue = open.filter(({ task }) => isOverdue(task)).length;
-  const done = rows.length - open.length;
+  const [rows, counts] = await Promise.all([getInbox(current), getRoleCounts()]);
+  const open = rows.filter((row) => row.task.status !== "done");
+  const overdue = open.filter((row) => isOverdue(row.task)).length;
 
   return (
-    <main className={styles.page}>
-      <header className={styles.header}>
+    <div className={styles.shell}>
+      <nav className={styles.rail}>
         <Text size="1" weight="medium" className={styles.wordmark}>
           CareOS
         </Text>
-        <RoleSwitcher role={current} />
-      </header>
 
-      <Heading as="h1" size="6" weight="medium">
-        {ROLES[current].long}
-      </Heading>
-      <Text as="p" size="2" color="gray" mt="1">
-        {open.length} open
-        {overdue > 0 && <Text color="red"> · {overdue} overdue</Text>}
-        {done > 0 && ` · ${done} done`}
-      </Text>
-
-      {open.length === 0 ? (
-        <Text as="p" size="2" color="gray" className={styles.empty}>
-          Nothing outstanding. New work arrives here once a discharge is reviewed.
-        </Text>
-      ) : (
-        <ol className={styles.list}>
-          {open.map(({ task, episode }) => (
-            <li key={task.id}>
-              <details className={styles.row}>
-                <summary className={styles.summary}>
-                  <span className={styles.subject}>
-                    <Text size="3">{task.title}</Text>
-                    <Text size="2" color="gray">
-                      {episode.patientName}
-                    </Text>
-                  </span>
-                  <time
-                    dateTime={task.dueAt.toISOString()}
-                    className={`${styles.due} ${isOverdue(task) ? styles.late : ""}`}
-                  >
-                    {whenDue(task.dueAt)}
-                  </time>
-                </summary>
-
-                <div className={styles.body}>
-                  {isGap(task) ? (
-                    <Text size="2" color="gray">
-                      Never mentioned in the discharge conversation. The protocol adds it
-                      for {episode.title.toLowerCase()}.
-                    </Text>
-                  ) : (
-                    <Text size="2" color="gray" className={styles.quote}>
-                      {task.evidence}
-                    </Text>
-                  )}
-                </div>
-              </details>
-            </li>
+        <div className={styles.railGroup}>
+          <Text size="1" weight="medium" className={styles.railLabel}>
+            Inboxes
+          </Text>
+          {Object.entries(ROLES).map(([value, { long }]) => (
+            <Link
+              key={value}
+              href={`/inbox?role=${value}`}
+              className={styles.railItem}
+              aria-current={value === current ? "page" : undefined}
+            >
+              <Text size="2">{long}</Text>
+              <Text size="1" className={styles.railCount}>
+                {counts.get(value as Role) ?? "–"}
+              </Text>
+            </Link>
           ))}
-        </ol>
-      )}
-    </main>
+        </div>
+      </nav>
+
+      <main className={styles.main}>
+        <header className={styles.head}>
+          <Heading as="h1" size="4" weight="medium">
+            {ROLES[current].long}
+          </Heading>
+          <Text size="2" color={overdue > 0 ? "red" : "gray"}>
+            {overdue > 0 ? `${overdue} overdue` : `${open.length} open`}
+          </Text>
+        </header>
+
+        {open.length === 0 ? (
+          <Text as="p" size="2" color="gray" className={styles.empty}>
+            Nothing outstanding. New work arrives here once a discharge is reviewed.
+          </Text>
+        ) : (
+          byPatient(open).map(({ episode, tasks }) => (
+            <section key={episode.id} className={styles.group}>
+              <div className={styles.groupHead}>
+                <Text size="2" weight="medium">
+                  {episode.patientName}
+                </Text>
+                <Text size="1" color="gray">
+                  {episode.title}
+                </Text>
+              </div>
+
+              <ol className={styles.rows}>
+                {tasks.map((task) => (
+                  <li key={task.id}>
+                    <details className={styles.row}>
+                      <summary className={styles.summary}>
+                        <span
+                          className={`${styles.mark} ${isGap(task) ? styles.gap : ""}`}
+                          aria-hidden
+                        />
+                        <Text size="2" className={styles.title}>
+                          {task.title}
+                        </Text>
+                        <Text
+                          size="1"
+                          className={`${styles.due} ${isOverdue(task) ? styles.late : ""}`}
+                        >
+                          {whenDue(task.dueAt)}
+                        </Text>
+                      </summary>
+
+                      <div className={styles.body}>
+                        {isGap(task) ? (
+                          <Text size="2" color="gray">
+                            Never mentioned in the discharge conversation. The protocol adds
+                            it for {episode.title.toLowerCase()}.
+                          </Text>
+                        ) : (
+                          <Text size="2" color="gray" className={styles.quote}>
+                            {task.evidence}
+                          </Text>
+                        )}
+
+                        <form action={completeTask.bind(null, task.id)}>
+                          <Button type="submit" size="1" variant="surface" color="gray">
+                            Mark done
+                          </Button>
+                        </form>
+                      </div>
+                    </details>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          ))
+        )}
+      </main>
+    </div>
   );
 }

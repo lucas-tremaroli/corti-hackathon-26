@@ -1,41 +1,112 @@
-.page {
-  max-width: 44rem;
-  margin: 0 auto;
-  padding: 3rem 1.5rem 6rem;
+.shell {
+  display: grid;
+  grid-template-columns: 13rem minmax(0, 1fr);
+  min-height: 100%;
 }
 
-.header {
+/* ---- rail ---- */
+
+.rail {
+  border-right: 1px solid var(--gray-4);
+  padding: 1.75rem 0.75rem;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-  margin-bottom: 4rem;
+  flex-direction: column;
+  gap: 2rem;
 }
 
 /* Deliberately not a brand colour. Red on this page means late, and only that. */
 .wordmark {
   text-transform: uppercase;
-  letter-spacing: 0.09em;
+  letter-spacing: 0.1em;
   color: var(--gray-11);
+  padding: 0 0.625rem;
 }
 
-.list {
+.railGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.railLabel {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gray-9);
+  padding: 0 0.625rem;
+  margin-bottom: 0.5rem;
+}
+
+.railItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.375rem 0.625rem;
+  border-radius: var(--radius-2);
+  color: var(--gray-11);
+  text-decoration: none;
+}
+
+.railItem:hover {
+  background: var(--gray-3);
+}
+
+.railItem[aria-current="page"] {
+  background: var(--gray-4);
+  color: var(--gray-12);
+}
+
+.railCount {
+  font-family: var(--code-font-family);
+  font-variant-numeric: tabular-nums;
+  color: var(--gray-9);
+}
+
+/* ---- list ---- */
+
+.main {
+  padding: 1.75rem 2rem 6rem;
+  max-width: 56rem;
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--gray-4);
+}
+
+.group {
+  margin-top: 2rem;
+}
+
+.groupHead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  background: var(--color-background);
+  border-bottom: 1px solid var(--gray-4);
+}
+
+.rows {
   list-style: none;
-  margin-top: 2.5rem;
-  border-top: 1px solid var(--gray-4);
 }
 
 .row {
-  border-bottom: 1px solid var(--gray-4);
+  border-bottom: 1px solid var(--gray-3);
 }
 
 .summary {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1.5rem;
-  padding: 1.125rem 0;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.5rem 0.5rem 0;
   cursor: pointer;
   list-style: none;
 }
@@ -44,23 +115,43 @@
   display: none;
 }
 
-.summary:focus-visible {
-  outline: 2px solid var(--gray-8);
-  outline-offset: 3px;
+.summary:hover {
+  background: var(--gray-3);
 }
 
-.subject {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+.summary:focus-visible {
+  outline: 2px solid var(--gray-8);
+  outline-offset: -2px;
+}
+
+/* The gutter mark is provenance, not status: hollow means nobody said it out
+   loud. Colour is reserved for time, so this stays grey in every state. */
+.mark {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  margin-left: 0.5rem;
+  border: 1.5px solid var(--gray-8);
+  border-radius: 50%;
+  background: var(--gray-8);
+}
+
+.gap {
+  background: transparent;
+}
+
+.title {
+  flex: 1;
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .due {
+  flex: none;
   font-family: var(--code-font-family);
-  font-size: var(--font-size-1);
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
   color: var(--gray-10);
 }
 
@@ -69,11 +160,12 @@
 }
 
 .body {
-  padding: 0 0 1.5rem;
-  max-width: 34rem;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  align-items: flex-start;
+  gap: 0.875rem;
+  padding: 0.25rem 0 1.25rem 2.5rem;
+  max-width: 34rem;
 }
 
 .quote {
@@ -82,5 +174,20 @@
 }
 
 .empty {
-  margin-top: 3rem;
+  margin-top: 2.5rem;
+}
+
+@media (max-width: 40rem) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rail {
+    border-right: none;
+    border-bottom: 1px solid var(--gray-4);
+  }
+
+  .main {
+    padding: 1.5rem 1.25rem 4rem;
+  }
 }

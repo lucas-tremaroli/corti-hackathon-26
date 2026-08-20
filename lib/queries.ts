@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, ne } from "drizzle-orm";
+import { and, asc, count, desc, eq, ne } from "drizzle-orm";
 import { db } from "./db";
 import { episodes, taskUpdates, tasks } from "./schema";
 import type { Role } from "./sop";
@@ -30,6 +30,16 @@ export function getInbox(role: Role) {
     .innerJoin(episodes, eq(tasks.episodeId, episodes.id))
     .where(and(eq(tasks.assigneeRole, role), ne(tasks.status, "proposed")))
     .orderBy(asc(tasks.dueAt));
+}
+
+// Outstanding work per role, for the counts beside each inbox in the rail.
+export async function getRoleCounts() {
+  const rows = await db
+    .select({ role: tasks.assigneeRole, open: count() })
+    .from(tasks)
+    .where(and(ne(tasks.status, "proposed"), ne(tasks.status, "done")))
+    .groupBy(tasks.assigneeRole);
+  return new Map(rows.map((r) => [r.role, r.open]));
 }
 
 export async function getTask(taskId: string) {
