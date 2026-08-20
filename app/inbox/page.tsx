@@ -1,6 +1,7 @@
 import { Button, Heading, Text } from "@radix-ui/themes";
 import Link from "next/link";
 import { completeTask } from "@/app/actions";
+import { Shell } from "@/components/shell";
 import { TaskComposer } from "@/components/task-composer";
 import { getInbox, getRoleCounts, getUpdatesFor } from "@/lib/queries";
 import { type Episode, isGap, isOverdue, type Task } from "@/lib/schema";
@@ -38,12 +39,8 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
   const threads = await getUpdatesFor(open.map((row) => row.task.id));
 
   return (
-    <div className={styles.shell}>
-      <nav className={styles.rail}>
-        <Text size="1" weight="medium" className={styles.wordmark}>
-          CareOS
-        </Text>
-
+    <Shell
+      rail={
         <div className={styles.railGroup}>
           <Text size="1" weight="medium" className={styles.railLabel}>
             Inboxes
@@ -62,10 +59,9 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
             </Link>
           ))}
         </div>
-      </nav>
-
-      <main className={styles.main}>
-        <header className={styles.head}>
+      }
+    >
+      <header className={styles.head}>
           <Heading as="h1" size="4" weight="medium">
             {ROLES[current].long}
           </Heading>
@@ -134,17 +130,19 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
                           </div>
                         ))}
 
-                        <TaskComposer
-                          taskId={task.id}
-                          taskTitle={task.title}
-                          authorRole={current}
-                        />
+                        <div className={styles.actions}>
+                          <TaskComposer
+                            taskId={task.id}
+                            taskTitle={task.title}
+                            authorRole={current}
+                          />
 
-                        <form action={completeTask.bind(null, task.id)}>
-                          <Button type="submit" size="1" variant="ghost" color="gray">
-                            Mark done
-                          </Button>
-                        </form>
+                          <form action={completeTask.bind(null, task.id)}>
+                            <Button type="submit" size="1" variant="surface" color="gray">
+                              Mark done
+                            </Button>
+                          </form>
+                        </div>
                       </div>
                     </details>
                   </li>
@@ -153,7 +151,6 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
             </section>
           ))
         )}
-      </main>
-    </div>
+    </Shell>
   );
 }

@@ -1,0 +1,93 @@
+.shell {
+  display: grid;
+  grid-template-columns: 13rem minmax(0, 1fr);
+  min-height: 100%;
+}
+
+.shell[data-open="false"] {
+  grid-template-columns: 3rem minmax(0, 1fr);
+}
+
+.rail {
+  border-right: 1px solid var(--gray-4);
+  padding: 1.25rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.railTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 1.75rem;
+}
+
+.wordmark {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--gray-11);
+  padding-left: 0.625rem;
+}
+
+.toggle {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: none;
+  border: none;
+  border-radius: var(--radius-2);
+  background: none;
+  color: var(--gray-9);
+  cursor: pointer;
+}
+
+.toggle:hover {
+  background: var(--gray-3);
+  color: var(--gray-11);
+}
+
+.toggle:focus-visible {
+  outline: 2px solid var(--gray-8);
+  outline-offset: -2px;
+}
+
+/* Draws the thing it does: a panel with its left column filled in. */
+.toggleIcon {
+  position: relative;
+  width: 14px;
+  height: 12px;
+  border: 1.25px solid currentColor;
+  border-radius: 2px;
+}
+
+.toggleIcon::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: currentColor;
+}
+
+.main {
+  padding: 1.75rem 2rem 6rem;
+  max-width: 56rem;
+}
+
+@media (max-width: 40rem) {
+  .shell,
+  .shell[data-open="false"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rail {
+    border-right: none;
+    border-bottom: 1px solid var(--gray-4);
+  }
+
+  .main {
+    padding: 1.5rem 1.25rem 4rem;
+  }
+}

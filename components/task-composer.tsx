@@ -37,8 +37,8 @@ export function TaskComposer({
   // access token each one mints on upgrade — off every unopened row.
   if (!open) {
     return (
-      <Button type="button" size="1" variant="ghost" color="gray" onClick={() => setOpen(true)}>
-        + Add update
+      <Button type="button" size="1" variant="surface" color="gray" onClick={() => setOpen(true)}>
+        Add update
       </Button>
     );
   }
