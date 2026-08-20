@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, SegmentedControl, Text, TextArea } from "@radix-ui/themes";
+import { Button, Callout, SegmentedControl, TextArea } from "@radix-ui/themes";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { addUpdate, startAmbient } from "@/app/actions";
 import type { Role } from "@/lib/sop";
@@ -10,6 +10,17 @@ import { Dictation } from "./dictation";
 import styles from "./task-composer.module.css";
 
 type Mode = "note" | "conversation";
+
+// Says what the mic is about to do, because the two modes record different
+// things and the difference matters once a patient is in the room.
+function explain(mode: Mode, interactionId?: string) {
+  if (mode === "note") {
+    return "One speaker. Dictate the update and it lands in the box above — nothing is saved until you add it.";
+  }
+  return interactionId
+    ? "Everyone in the room is transcribed, split by speaker, and the recording attaches to this task."
+    : "Preparing the recording…";
+}
 
 export function TaskComposer({
   taskId,
@@ -132,13 +143,9 @@ export function TaskComposer({
         </Button>
       </div>
 
-      {mode === "conversation" && (
-        <Text size="1" color="gray">
-          {interactionId
-            ? "Everyone in the room is transcribed, and the recording attaches to this task."
-            : "Preparing the recording…"}
-        </Text>
-      )}
+      <Callout.Root size="1" color="gray" variant="surface">
+        <Callout.Text>{explain(mode, interactionId)}</Callout.Text>
+      </Callout.Root>
     </div>
   );
 }
