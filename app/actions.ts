@@ -4,8 +4,16 @@ import { eq, inArray } from "drizzle-orm";
 import { refresh } from "next/cache";
 import { createInteraction, extractFacts, predictCodes } from "@/lib/corti";
 import { db } from "@/lib/db";
+import { getUpdatesFor } from "@/lib/queries";
 import { episodes, type UpdateKind, taskUpdates, tasks } from "@/lib/schema";
-import { classifySteps, type Role, sopForCodes } from "@/lib/sop";
+import {
+  checkClosure,
+  classifySteps,
+  type ClosureCheck,
+  type Role,
+  sopForCodes,
+  sopStep,
+} from "@/lib/sop";
 
 const addDays = (from: Date, days: number) => new Date(from.getTime() + days * 86_400_000);
 
@@ -55,9 +63,33 @@ export async function approveTasks(taskIds: string[]) {
   refresh();
 }
 
-export async function completeTask(taskId: string) {
-  await db.update(tasks).set({ status: "done" }).where(eq(tasks.id, taskId));
-  refresh();
+export type Closure = { done: boolean; criteria: ClosureCheck[] };
+
+// Marking a task done is a claim that the protocol's criteria were met, and the
+// comments on the task are the only record of that. Corti reads them, and the
+// claim is refused if they don't back it — the refusal names what's missing.
+export async function completeTask(taskId: string): Promise<Closure> {
+  const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId));
+  if (!task) throw new Error("No such task");
+
+  const step = sopStep(task.sopStepId);
+  // ponytail: a task that didn't come from a protocol has nothing to check
+  // against, so it closes on the assignee's word.
+  if (!step) {
+    await db.update(tasks).set({ status: "done" }).where(eq(tasks.id, taskId));
+    refresh();
+    return { done: true, criteria: [] };
+  }
+
+  const comments = (await getUpdatesFor([taskId])).get(taskId) ?? [];
+  const criteria = await checkClosure(step, comments.map((c) => c.text));
+  const done = criteria.every((c) => c.met);
+
+  if (done) {
+    await db.update(tasks).set({ status: "done" }).where(eq(tasks.id, taskId));
+    refresh();
+  }
+  return { done, criteria };
 }
 
 // Call before mounting <Ambient>; hand the result straight to its interactionId.

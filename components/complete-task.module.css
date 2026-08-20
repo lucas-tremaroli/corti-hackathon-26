@@ -1,0 +1,52 @@
+/* Mirrors the comments section: one label, one hairline, so the two read as
+   sibling concerns — what was said, and what closing it requires. */
+.closure {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.label {
+  padding-bottom: 0.375rem;
+  border-bottom: 1px solid var(--gray-4);
+  color: var(--gray-10);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  list-style: none;
+}
+
+.criterion {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.criterionText {
+  max-width: 42rem;
+}
+
+/* Hollow until something on the record backs it — the same reading as the mark
+   in the row gutter. */
+.mark {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--gray-8);
+  border-radius: 50%;
+}
+
+.met {
+  background: var(--gray-8);
+}
+
+.action {
+  display: flex;
+  justify-content: flex-end;
+}

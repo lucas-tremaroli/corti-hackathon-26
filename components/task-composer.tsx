@@ -15,7 +15,7 @@ type Mode = "note" | "conversation";
 // things and the difference matters once a patient is in the room.
 function explain(mode: Mode, interactionId?: string) {
   if (mode === "note") {
-    return "One speaker. Dictate the update and it lands in the box above — nothing is saved until you add it.";
+    return "One speaker. Dictate the comment and it lands in the box above — nothing is saved until you add it.";
   }
   return interactionId
     ? "Everyone in the room is transcribed, split by speaker, and the recording attaches to this task."
@@ -78,7 +78,7 @@ export function TaskComposer({
         className={styles.add}
         onClick={() => setOpen(true)}
       >
-        + Add update
+        + Add comment
       </Button>
     );
   }
@@ -90,7 +90,7 @@ export function TaskComposer({
         rows={3}
         value={text}
         onChange={(event) => setText(event.target.value)}
-        placeholder="Add an update, or dictate one."
+        placeholder="Say what happened, or dictate it."
       />
 
       <div className={styles.controls}>
@@ -146,7 +146,7 @@ export function TaskComposer({
             })
           }
         >
-          {pending ? "Saving…" : "Add update"}
+          {pending ? "Saving…" : "Add comment"}
         </Button>
       </div>
 

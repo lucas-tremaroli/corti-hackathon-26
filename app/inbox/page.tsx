@@ -1,11 +1,11 @@
-import { Button, Heading, Text } from "@radix-ui/themes";
+import { Heading, Text } from "@radix-ui/themes";
 import Link from "next/link";
-import { completeTask } from "@/app/actions";
+import { CompleteTask } from "@/components/complete-task";
 import { Shell } from "@/components/shell";
 import { TaskComposer } from "@/components/task-composer";
 import { getInbox, getRoleCounts, getUpdatesFor } from "@/lib/queries";
 import { type Episode, isGap, isOverdue, type Task } from "@/lib/schema";
-import { ROLES, type Role } from "@/lib/sop";
+import { ROLES, type Role, sopStep } from "@/lib/sop";
 import styles from "./inbox.module.css";
 
 const relative = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
@@ -125,7 +125,7 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
 
                         <section className={styles.updates}>
                           <Text size="1" weight="medium" className={styles.updatesLabel}>
-                            Updates
+                            Comments
                           </Text>
 
                           {threads.get(task.id)?.map((update) => (
@@ -150,12 +150,12 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
                         </section>
 
                         {/* The task itself, not its thread — so it sits outside the
-                            updates panel and is the only bordered button here. */}
-                        <form action={completeTask.bind(null, task.id)} className={styles.taskAction}>
-                          <Button type="submit" size="1" variant="surface" color="gray">
-                            Mark done
-                          </Button>
-                        </form>
+                            comments panel, and closing it is checked against the
+                            protocol rather than taken on trust. */}
+                        <CompleteTask
+                          taskId={task.id}
+                          criteria={sopStep(task.sopStepId)?.closes ?? []}
+                        />
                       </div>
                     </details>
                   </li>

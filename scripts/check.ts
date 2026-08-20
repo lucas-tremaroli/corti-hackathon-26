@@ -1,7 +1,7 @@
 import assert from "node:assert";
 import { readFileSync } from "node:fs";
 import { extractFacts, predictCodes } from "../lib/corti";
-import { classifySteps, POST_FALL_DISCHARGE, sopForCodes } from "../lib/sop";
+import { checkClosure, classifySteps, POST_FALL_DISCHARGE, sopForCodes, sopStep } from "../lib/sop";
 
 // The demo script itself, so a change to what gets said on stage is a change to
 // what this asserts. Four protocol steps arranged out loud, two raised and dropped.
@@ -38,6 +38,33 @@ for (const id of ["medication-review", "strength-balance-referral", "bone-health
 assert.ok(
   verdicts.filter((v) => v.status === "covered").every((v) => v.evidence !== ""),
   "a covered step without a quote is not evidence of anything",
+);
+
+// The other half of the loop: a task closes on what the comments say was done,
+// not on someone clicking the button.
+const step = sopStep("medication-review");
+assert.ok(step, "medication-review must exist in the protocol");
+
+const planned = await checkClosure(step, [
+  "Booked Mrs Jensen in for a medication review at the end of the month.",
+]);
+assert.ok(
+  planned.every((c) => !c.met),
+  "a booking is a plan, not a completed review — must not close the task",
+);
+
+const performed = await checkClosure(step, [
+  "Went through the whole medication list with her today. Stopped the zopiclone, halved the ramipril because she was dizzy standing up, kept the alendronate as it is.",
+]);
+console.log("closure:");
+for (const c of performed) console.log(`  ${c.met ? "met " : "open"}  ${c.text}  ${c.evidence}`);
+assert.ok(
+  performed.every((c) => c.met),
+  "a review that names every decision must close the task",
+);
+assert.ok(
+  performed.every((c) => c.evidence !== ""),
+  "a met criterion with nothing quoted is not evidence of anything",
 );
 
 console.log("\nok");
