@@ -1,6 +1,6 @@
-import { and, asc, count, desc, eq, ne } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, ne } from "drizzle-orm";
 import { db } from "./db";
-import { episodes, taskUpdates, tasks } from "./schema";
+import { episodes, type TaskUpdate, taskUpdates, tasks } from "./schema";
 import type { Role } from "./sop";
 
 export async function getEpisode(episodeId: string) {
@@ -30,6 +30,24 @@ export function getInbox(role: Role) {
     .innerJoin(episodes, eq(tasks.episodeId, episodes.id))
     .where(and(eq(tasks.assigneeRole, role), ne(tasks.status, "proposed")))
     .orderBy(asc(tasks.dueAt));
+}
+
+// Update threads for a whole list of tasks in one round trip, so the inbox can
+// render them inside rows without a query per row.
+export async function getUpdatesFor(taskIds: string[]) {
+  const threads = new Map<string, TaskUpdate[]>();
+  if (taskIds.length === 0) return threads;
+
+  const rows = await db
+    .select()
+    .from(taskUpdates)
+    .where(inArray(taskUpdates.taskId, taskIds))
+    .orderBy(asc(taskUpdates.createdAt));
+
+  for (const update of rows) {
+    threads.set(update.taskId, [...(threads.get(update.taskId) ?? []), update]);
+  }
+  return threads;
 }
 
 // Outstanding work per role, for the counts beside each inbox in the rail.

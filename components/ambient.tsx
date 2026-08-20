@@ -12,7 +12,7 @@ export function Ambient({
 }: {
   interactionId: string;
   onTranscript: (text: string) => void;
-  onFacts: (facts: Corti.StreamFact[]) => void;
+  onFacts?: (facts: Corti.StreamFact[]) => void;
 }) {
   const ref = useRef<CortiAmbient>(null);
   const callbacks = useRef({ onTranscript, onFacts });
@@ -44,7 +44,7 @@ export function Ambient({
     };
     const facts = (event: Event) => {
       const { fact } = (event as CustomEvent<Corti.StreamFactsMessage>).detail;
-      callbacks.current.onFacts(fact.filter((f) => !f.isDiscarded));
+      callbacks.current.onFacts?.(fact.filter((f) => !f.isDiscarded));
     };
 
     // Lit keeps properties set before upgrade, so doing both covers the element

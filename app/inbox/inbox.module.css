@@ -173,6 +173,15 @@
   padding-left: 0.875rem;
 }
 
+.update {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  width: 100%;
+  padding-top: 0.625rem;
+  border-top: 1px solid var(--gray-3);
+}
+
 .empty {
   margin-top: 2.5rem;
 }

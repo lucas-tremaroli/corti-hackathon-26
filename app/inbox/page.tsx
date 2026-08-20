@@ -1,7 +1,8 @@
 import { Button, Heading, Text } from "@radix-ui/themes";
 import Link from "next/link";
 import { completeTask } from "@/app/actions";
-import { getInbox, getRoleCounts } from "@/lib/queries";
+import { TaskComposer } from "@/components/task-composer";
+import { getInbox, getRoleCounts, getUpdatesFor } from "@/lib/queries";
 import { type Episode, isGap, isOverdue, type Task } from "@/lib/schema";
 import { ROLES, type Role } from "@/lib/sop";
 import styles from "./inbox.module.css";
@@ -34,6 +35,7 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
   const [rows, counts] = await Promise.all([getInbox(current), getRoleCounts()]);
   const open = rows.filter((row) => row.task.status !== "done");
   const overdue = open.filter((row) => isOverdue(row.task)).length;
+  const threads = await getUpdatesFor(open.map((row) => row.task.id));
 
   return (
     <div className={styles.shell}>
@@ -120,8 +122,26 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
                           </Text>
                         )}
 
+                        {threads.get(task.id)?.map((update) => (
+                          <div key={update.id} className={styles.update}>
+                            <Text size="1" color="gray">
+                              {ROLES[update.authorRole].long} · {whenDue(update.createdAt)}
+                              {update.kind !== "typed" && ` · ${update.kind}`}
+                            </Text>
+                            <Text as="p" size="2">
+                              {update.text}
+                            </Text>
+                          </div>
+                        ))}
+
+                        <TaskComposer
+                          taskId={task.id}
+                          taskTitle={task.title}
+                          authorRole={current}
+                        />
+
                         <form action={completeTask.bind(null, task.id)}>
-                          <Button type="submit" size="1" variant="surface" color="gray">
+                          <Button type="submit" size="1" variant="ghost" color="gray">
                             Mark done
                           </Button>
                         </form>
