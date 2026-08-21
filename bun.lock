@@ -7,6 +7,7 @@
       "dependencies": {
         "@corti/ambient-web": "^0.9.0",
         "@corti/dictation-web": "^0.9.0",
+        "@corti/embedded-web": "^1.0.1",
         "@corti/sdk": "^5.0.0",
         "@radix-ui/themes": "^3.3.0",
         "d3-force": "^3.0.0",
@@ -66,6 +67,8 @@
     "@corti/ambient-web": ["@corti/ambient-web@0.9.0", "", { "dependencies": { "@corti/sdk": "5.0.0", "@lit/context": "^1.1.6", "lit": "^3.3.3" } }, "sha512-2+WeII/irxA49Sb9cfZE32upALhXSmss4TcB30lFGTHQTPl+UcR2N9qqjq4oCgTe3YhdXcYarXQqFso+lKBn2w=="],
 
     "@corti/dictation-web": ["@corti/dictation-web@0.9.0", "", { "dependencies": { "@corti/sdk": "5.0.0", "@lit/context": "^1.1.6", "lit": "^3.3.3" } }, "sha512-h0Y0UIlubabJu+3Zgqxch4wl9ymK/yDTcbdWDbGMLGS0/5fJ/5UlRs5Vn+9tu9VivRZ6nTU0WoDHYyh/VTQeYw=="],
+
+    "@corti/embedded-web": ["@corti/embedded-web@1.0.1", "", { "dependencies": { "@corti/sdk": "^0.5.0", "lit": "^3.1.4" }, "peerDependencies": { "react": "^18.0.0 || ^19.0.0" } }, "sha512-XUy4ZRHdVNa5LNY/2eOFrd66oo/9woujQq6hjqwjPm3URlhCQHtCbd5wtDNNcGwKnZheWRbauZ7TKQwac1g/JQ=="],
 
     "@corti/sdk": ["@corti/sdk@5.0.0", "", { "dependencies": { "ws": "^8.16.0" } }, "sha512-RyLbQeQj812HKB8yv8gDQhl1m6Ns3zbH06SwQ8rlyDesUoZB/nqZ46CZMOB48lDEiMc7lQ/x9210x5SkEv+mcg=="],
 
@@ -1002,6 +1005,8 @@
     "zod-validation-error": ["zod-validation-error@4.0.2", "", { "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" } }, "sha512-Q6/nZLe6jxuU80qb/4uJ4t5v2VEZ44lzQjPDhYJNztRQ4wyWc6VF3D3Kb/fAuPetZQnhS3hnajCf9CsWesghLQ=="],
 
     "@babel/core/json5": ["json5@2.2.3", "", { "bin": { "json5": "lib/cli.js" } }, "sha512-XmOWe7eyHYH14cLdVPoyg+GOH3rYX++KpzrylJwSW98t3Nk+U8XOl8FWKOgwtzdb8lXGf6zYwDUzeHMWfxasyg=="],
+
+    "@corti/embedded-web/@corti/sdk": ["@corti/sdk@0.5.0", "", { "dependencies": { "ws": "^8.16.0" } }, "sha512-JL4J5VwOTP+0BXUUmz3Y+4h+fyy6cmxk4dZoRMvsGCsEbCJUnVVzHSr9gZ8ETIWw7WLQqKGeBDXFNUyUMDxvWw=="],
 
     "@eslint-community/eslint-utils/eslint-visitor-keys": ["eslint-visitor-keys@3.4.3", "", {}, "sha512-wpc+LXeiyiisxPlEkUzU6svyS1frIO3Mgxj1fdy7Pm8Ygzguax2N3Fa/D/ag1WqbOprdI+uY6wMUl8/a2G+iag=="],
 

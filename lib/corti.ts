@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { type Corti, CortiClient, CortiEnvironment } from "@corti/sdk";
 
 function cfg() {
@@ -80,6 +81,83 @@ export async function browserCredentials() {
   const { accessToken, expiresIn } = await issueToken();
   return { token: accessToken, expiresIn, tenantName: tenant, environment };
 }
+
+/**
+ * The embedded assistant is the one Corti surface our service account cannot
+ * open. Measured, not guessed: client_credentials comes back with
+ * refreshExpiresIn 0 and no refreshToken, and auth() then rejects the token
+ * outright — "access_token is missing required claims: email". A service
+ * account has no email because it is nobody.
+ *
+ * So the assistant needs a real person's token, which means a browser login —
+ * the practitioner signs in to Corti and their password never reaches us. The
+ * rest of the app keeps the service account; only this one surface signs in.
+ */
+const REALM = () => `https://auth.${cfg().environment}.corti.app/realms/${cfg().tenant}`;
+
+// Keycloak's own casing. The embed hands this response through verbatim, so it
+// is the shape everything here converges on.
+export type UserToken = {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+  refresh_token: string;
+  refresh_expires_in?: number;
+  id_token?: string;
+  scope?: string;
+  session_state?: string;
+};
+
+/**
+ * Where to send the practitioner to sign in. PKCE is not strictly required of a
+ * confidential client, but the verifier costs one hash and closes the window
+ * where a leaked code alone is enough.
+ *
+ * offline_access is what makes the refresh token appear, and email is the claim
+ * the embed rejected us for missing. Both are load-bearing.
+ */
+export function authorizeUrl(redirectUri: string, verifier: string, state: string) {
+  const challenge = createHash("sha256").update(verifier).digest("base64url");
+  const params = new URLSearchParams({
+    client_id: cfg().clientId,
+    response_type: "code",
+    scope: "openid email profile offline_access",
+    redirect_uri: redirectUri,
+    state,
+    code_challenge: challenge,
+    code_challenge_method: "S256",
+  });
+  return `${REALM()}/protocol/openid-connect/auth?${params}`;
+}
+
+// The SDK's auth.token() speaks camelCase both ways, and every consumer of this
+// wants Keycloak's own shape, so these two go straight to the token endpoint.
+async function tokenEndpoint(body: Record<string, string>): Promise<UserToken> {
+  const { clientId, clientSecret } = cfg();
+  const res = await fetch(`${REALM()}/protocol/openid-connect/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ client_id: clientId, client_secret: clientSecret, ...body }),
+  });
+  if (!res.ok) throw new Error(`Corti login failed — ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  return res.json();
+}
+
+export const exchangeCode = (code: string, redirectUri: string, verifier: string) =>
+  tokenEndpoint({
+    grant_type: "authorization_code",
+    code,
+    redirect_uri: redirectUri,
+    code_verifier: verifier,
+  });
+
+/**
+ * An access token lasts 300s and the assistant can be open for longer than that,
+ * so the cookie holds the refresh token and every load trades it for a fresh
+ * one. Nothing durable is stored on our side but the right to ask again.
+ */
+export const refreshUserToken = (refreshToken: string) =>
+  tokenEndpoint({ grant_type: "refresh_token", refresh_token: refreshToken });
 
 // Corti Models is OpenAI-compatible and lives on its own host; the SDK has no
 // client for it, so this one stays a raw fetch.

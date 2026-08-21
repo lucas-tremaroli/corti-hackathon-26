@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { refresh } from "next/cache";
 import { cookies } from "next/headers";
 import { PROFILE_COOKIE } from "@/lib/profile";
+import { askAgent } from "@/lib/agent";
 import { createInteraction, extractFacts, predictCodes } from "@/lib/corti";
 import { draftSbar, readHandoffIntent, type Request, type Sbar } from "@/lib/handoff";
 import type { NoteKind } from "@/lib/model";
@@ -263,4 +264,18 @@ export async function addUpdate(input: {
 
   await write.addNote({ ...input, closure });
   refresh();
+}
+
+// ---- the ward assistant --------------------------------------------------
+
+/**
+ * A question about the board, answered by a Corti agent rather than a raw chat
+ * call. The difference matters: the agent is a named, persistent thing on the
+ * tenant with its own system prompt, so the answer comes back the same shape
+ * whoever asks and whatever page they ask from.
+ */
+export async function askWardAgent(question: string) {
+  const trimmed = question.trim();
+  if (!trimmed) throw new Error("Ask a question first.");
+  return askAgent(trimmed);
 }

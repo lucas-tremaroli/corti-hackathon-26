@@ -10,11 +10,13 @@
     "check": "bun scripts/check.ts",
     "check:graph": "bun scripts/check-graph-view.ts",
     "check:patients": "bun scripts/check-patients.ts",
+    "check:agent": "bun scripts/check-agent.ts",
     "seed": "bun scripts/seed.ts"
   },
   "dependencies": {
     "@corti/ambient-web": "^0.9.0",
     "@corti/dictation-web": "^0.9.0",
+    "@corti/embedded-web": "^1.0.1",
     "@corti/sdk": "^5.0.0",
     "@radix-ui/themes": "^3.3.0",
     "d3-force": "^3.0.0",

@@ -1,0 +1,254 @@
+/* The console's 42rem measure, but held to the left edge rather than centred.
+   The console centres because the mic is a focal object; this page is a block of
+   left-aligned prose, and a centred block starting a third of the way across the
+   screen reads as unmoored from the heading above it.
+
+   --gutter is the single indent, as on the console: the label, the rule beside
+   the question and the answer all hang off one left edge. */
+.panel {
+  --gutter: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  max-width: 42rem;
+  padding-top: 2.5rem;
+}
+
+/* ---- asking ---- */
+
+.ask {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.field {
+  font: inherit;
+  font-size: var(--font-size-2);
+  line-height: 1.6;
+  color: var(--gray-12);
+  background: var(--color-surface);
+  border: 1px solid var(--gray-6);
+  border-radius: var(--radius-2);
+  padding: 0.625rem 0.75rem;
+  resize: vertical;
+  min-height: 4.5rem;
+}
+
+.field::placeholder {
+  color: var(--gray-9);
+}
+
+.field:focus-visible {
+  outline: 2px solid var(--gray-8);
+  outline-offset: -1px;
+}
+
+.field:disabled {
+  color: var(--gray-10);
+  background: var(--gray-2);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+/* What Enter does, said once and quietly, rather than discovered. */
+.hint {
+  color: var(--gray-9);
+}
+
+/* ---- the openers ---- */
+
+/* Under their own label, the way the inbox puts a thread under one. Three
+   questions worth a click, because a blank box is the hardest thing to answer. */
+.openers {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.openersLabel {
+  font-family: var(--code-font-family);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gray-10);
+}
+
+.openerRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+/* Quiet enough to read as a suggestion rather than a control — the same surface
+   treatment the inbox gives "Give it an owner". */
+.opener {
+  font: inherit;
+  font-size: var(--font-size-1);
+  text-align: left;
+  color: var(--gray-11);
+  background: var(--color-surface);
+  border: 1px solid var(--gray-5);
+  border-radius: var(--radius-2);
+  padding: 0.3125rem 0.5rem;
+  cursor: pointer;
+}
+
+.opener:hover:not(:disabled) {
+  border-color: var(--gray-7);
+  color: var(--gray-12);
+}
+
+.opener:focus-visible {
+  outline: 2px solid var(--gray-8);
+  outline-offset: 1px;
+}
+
+.opener:disabled {
+  color: var(--gray-9);
+  cursor: default;
+}
+
+/* ---- the exchange ---- */
+
+.exchange {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--gray-4);
+}
+
+.asked {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+/* The machine's voice, the same one the console and the due dates use. */
+.askedLabel {
+  font-family: var(--code-font-family);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gray-10);
+}
+
+/* Ruled like a quote, because that is what it is: what was said, before anything
+   was made of it. Same rule the inbox puts beside evidence. */
+.question {
+  border-left: 2px solid var(--gray-5);
+  padding-left: calc(var(--gutter) - 2px);
+  color: var(--gray-11);
+}
+
+/* Mark and label, on the console's baseline grid — a dot that breathes while the
+   agent is out, and stops when it is back. */
+.working {
+  display: grid;
+  grid-template-columns: 9px minmax(0, 1fr);
+  align-items: center;
+  column-gap: calc(var(--gutter) - 9px);
+}
+
+.dot {
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--gray-8);
+  border-radius: 50%;
+  background: var(--color-background);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dot {
+    animation: breathe 1.8s ease-in-out infinite;
+  }
+}
+
+@keyframes breathe {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.workingLabel {
+  font-family: var(--code-font-family);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gray-11);
+}
+
+/* The answer sits in the reader's own face, indented to the same left edge as
+   everything else below the question. */
+.answer {
+  padding-left: var(--gutter);
+  color: var(--gray-12);
+}
+
+.answer p {
+  line-height: 1.65;
+}
+
+.answer p + p,
+.answer ul + p,
+.answer p + ul {
+  margin-top: 0.75rem;
+}
+
+/* Hanging bullets, so the text lines up as a block and the marks sit outside it. */
+.answer ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.answer li {
+  position: relative;
+  padding-left: 1rem;
+  line-height: 1.65;
+}
+
+/* On the optical centre of the first line, not its top — half of the 1.65
+   line-height, which is where the eye expects a dash to sit. */
+.answer li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.825em;
+  width: 5px;
+  height: 1px;
+  background: var(--gray-8);
+}
+
+/* The agent uses bold to head a bullet, so it is a label, not a shout. */
+.answer strong {
+  font-weight: 600;
+  color: var(--gray-12);
+}
+
+/* The one place this page spends colour, and it means the same thing it means
+   everywhere else: something is wrong, not merely absent. */
+.error {
+  padding-left: var(--gutter);
+  color: var(--red-11);
+}
+
+@media (max-width: 40rem) {
+  .panel {
+    --gutter: 1.5rem;
+    padding-top: 2rem;
+  }
+
+  .actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .hint {
+    text-align: center;
+  }
+}

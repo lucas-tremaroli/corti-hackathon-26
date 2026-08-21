@@ -1,0 +1,21 @@
+/* The same header every other page wears: title left, what it is right, hairline
+   under both. */
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--gray-4);
+}
+
+.about {
+  text-align: right;
+  max-width: 24rem;
+}
+
+@media (max-width: 40rem) {
+  .about {
+    display: none;
+  }
+}

@@ -7,12 +7,15 @@ const DESTINATIONS = [
   { href: "/", label: "Handoff" },
   { href: "/inbox", label: "Inbox" },
   { href: "/graph", label: "Graph" },
+  { href: "/assistant", label: "Ask" },
 ];
 
 /**
- * Three destinations, in the order the work moves: the handoff being written, the
+ * Four destinations, in the order the work moves: the handoff being written, the
  * inbox it lands in, and the facts that reached neither. Whose inbox is a question
  * for the profile at the bottom of the rail, not for this list.
+ *
+ * Ask sits last because it is the one that answers rather than acts.
  */
 export async function Rail({ current, clinicianId }: { current: string; clinicianId?: string }) {
   const counts = await openCounts();
