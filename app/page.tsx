@@ -28,11 +28,6 @@ export default async function HandoffPage() {
         <Heading as="h1" size="4" weight="medium">
           Handoff
         </Heading>
-        {current && (
-          <Text size="2" color="gray">
-            as {current.name}
-          </Text>
-        )}
       </header>
 
       {current === null || people.length === 0 ? (
