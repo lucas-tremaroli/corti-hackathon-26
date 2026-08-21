@@ -35,6 +35,24 @@ type Entry = {
 };
 
 /**
+ * The run, in the order analyse() performs it. Drawn in full from the moment
+ * there is anything to analyse, so what is still to come is on screen next to
+ * what has already landed — a run that stops at step three then reads as three
+ * of five rather than as three things that happened.
+ *
+ * The label is the join: begin() writes it onto the entry, and the row finds its
+ * entry by matching it. Anything not on this list — Failed, Stopped — is not a
+ * step and is drawn after them.
+ */
+const STEPS = [
+  "Extracting facts",
+  "Medical coding",
+  "Checking the protocol",
+  "Reading who this is about",
+  "Drafting the handoff",
+] as const;
+
+/**
  * The wall clock in whole seconds, ticking only while something is in flight so
  * an idle console is not repainting once a second for nothing.
  *
@@ -102,7 +120,10 @@ export function HandoffConsole({
   // before speaking — you say the name, the way you would to a colleague.
   const [patientId, setPatientId] = useState("");
   const [transcript, setTranscript] = useState("");
-  const [dictating, setDictating] = useState(false);
+  // Spoken, or read off disk for the demo. It labels the transcript rather than
+  // being announced in the feed: how the words arrived is a property of them.
+  const [source, setSource] = useState<"spoken" | "file">("spoken");
+  const [recording, setRecording] = useState(false);
   const [entries, setEntries] = useState<Entry[]>([]);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [progress, setProgress] = useState<Progress>({});
@@ -115,10 +136,14 @@ export function HandoffConsole({
   const cancelled = useRef(false);
   const foot = useRef<HTMLDivElement>(null);
 
-  // The feed grows downward, so the newest thing is always what you are looking at.
+  // The feed grows downward, so the newest thing is always what you are looking
+  // at. Keyed to what has landed rather than to mount: the point is to follow
+  // the run, and a run takes half a minute.
   useEffect(() => {
-    foot.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, []);
+    if (entries.length === 0) return;
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    foot.current?.scrollIntoView({ behavior: still ? "auto" : "smooth", block: "end" });
+  }, [entries.length, draft]);
 
   const running = entries.some((entry) => entry.state === "running");
   const nowSeconds = useClock(running);
@@ -152,6 +177,7 @@ export function HandoffConsole({
   function reset() {
     setEntries([]);
     setTranscript("");
+    setSource("spoken");
     setDraft(null);
     setProgress({});
     setRecipientId("");
@@ -283,19 +309,35 @@ export function HandoffConsole({
 
   return (
     <div className={styles.console}>
+      {/* The mic never moves off the centre axis. Idle it is the whole screen;
+          once there is a run it shrinks and pins to the top, so another sentence
+          is always one press away however far the feed has scrolled. */}
       <div className={styles.stage} data-idle={idle}>
-        <div className={styles.mic} data-live={dictating}>
+        <div className={styles.mic} data-live={recording}>
           <Dictation
-            onTranscript={(text) => {
-              setDictating(true);
-              setTranscript((prev) => (prev ? `${prev} ${text}` : text));
+            onTranscript={(text) => setTranscript((prev) => (prev ? `${prev} ${text}` : text))}
+            onState={(state) => {
+              setRecording(state === "recording");
+              if (state === "recording") setSource("spoken");
             }}
           />
         </div>
 
-        <Text size="2" color="gray" className={styles.hint}>
-          {idle ? `Dictate the handoff. Say who it is about.` : `${words} words dictated.`}
-        </Text>
+        {/* One line under the mic, whichever line is true. An open microphone
+            outranks everything else it could say. */}
+        {recording ? (
+          <Text size="1" className={styles.status}>
+            Listening
+          </Text>
+        ) : idle ? (
+          <Text size="2" color="gray" className={styles.hint}>
+            Dictate the handoff. Say who it is about.
+          </Text>
+        ) : (
+          <Text size="1" className={styles.status}>
+            {words} words
+          </Text>
+        )}
 
         {idle && (
           <Button
@@ -308,7 +350,7 @@ export function HandoffConsole({
               loadDemoTranscript()
                 .then((text) => {
                   setTranscript(text);
-                  note("Loaded the dictation on file", `${text.trim().split(/\s+/).length} words`);
+                  setSource("file");
                 })
                 .catch((error: Error) => toast(error.message, "error"))
             }
@@ -318,69 +360,143 @@ export function HandoffConsole({
         )}
       </div>
 
-      {/* The feed. Newest at the bottom, and it only ever grows until a handoff
-          is sent — at which point the whole thing goes and the next one starts
-          from an empty screen. */}
+      {/* The feed. The dictation at the top, the five steps under it whether or
+          not they have run yet, then whatever the run had to say for itself. It
+          only ever grows until a handoff is sent — at which point the whole
+          thing goes and the next one starts from an empty screen. */}
       {!idle && (
-        <ol className={styles.feed}>
+        <div className={styles.feed}>
           {transcript !== "" && (
-            <li className={styles.entry}>
-              <div className={styles.entryHead}>
-                <span className={styles.dot} data-state="done" aria-hidden />
-                <Text size="2" weight="medium">
-                  Dictated
-                </Text>
-                <Text size="1" color="gray">
-                  {words} words
-                </Text>
-              </div>
+            <section className={styles.said}>
+              <Text size="1" className={styles.saidLabel}>
+                {source === "file" ? "On file" : "Dictated"} · {words} words
+              </Text>
               <pre className={styles.transcript}>{transcript}</pre>
-            </li>
+            </section>
           )}
 
-          {entries.map((entry) => (
-            <li key={entry.id} className={styles.entry}>
-              <div className={styles.entryHead}>
-                <span className={styles.dot} data-state={entry.state} aria-hidden />
+          <ol className={styles.steps}>
+            {STEPS.map((label) => {
+              // Last wins: Drafting runs again on every retry, and the newest
+              // answer is the one on screen.
+              const entry = entries.findLast((e) => e.label === label);
+              const state = entry?.state ?? "pending";
+
+              return (
+                <li key={label} className={styles.step} data-state={state}>
+                  <span className={styles.dot} data-state={state} aria-hidden />
+                  <Text size="1" className={styles.stepLabel}>
+                    {label}
+                  </Text>
+                  {/* Counts up while it runs, then settles on what it cost. */}
+                  <Text size="1" className={styles.elapsed}>
+                    {state === "running"
+                      ? `${Math.max(0, nowSeconds - Math.floor(entry!.startedAt / 1000))}s`
+                      : entry?.tookMs !== undefined
+                        ? `${Math.round(entry.tookMs / 1000)}s`
+                        : ""}
+                  </Text>
+                  {entry?.detail && (
+                    <Text size="2" className={styles.detail}>
+                      {entry.detail}
+                    </Text>
+                  )}
+                  {entry?.items && entry.items.length > 0 && (
+                    <ul className={styles.items}>
+                      {entry.items.map((item) => (
+                        <li key={item}>
+                          <Text size="1" color="gray">
+                            {item}
+                          </Text>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+
+          {/* Not steps: how the run ended, when it did not end in a draft. */}
+          {entries
+            .filter((entry) => !STEPS.includes(entry.label as (typeof STEPS)[number]))
+            .map((entry) => (
+              <p key={entry.id} className={styles.note}>
                 <Text size="2" weight="medium">
                   {entry.label}
+                </Text>{" "}
+                <Text size="2" color="gray">
+                  {entry.detail}
                 </Text>
-                {entry.detail && (
-                  <Text size="1" color="gray">
-                    {entry.detail}
-                  </Text>
-                )}
-                {/* Counts up while it runs, then settles on what it cost. */}
-                <Text size="1" className={styles.elapsed}>
-                  {entry.state === "running"
-                    ? `${Math.max(0, nowSeconds - Math.floor(entry.startedAt / 1000))}s`
-                    : entry.tookMs !== undefined
-                      ? `${Math.round(entry.tookMs / 1000)}s`
-                      : ""}
-                </Text>
-              </div>
-              {entry.items && entry.items.length > 0 && (
-                <ul className={styles.items}>
-                  {entry.items.map((item) => (
-                    <li key={item}>
-                      <Text size="1" color="gray">
-                        {item}
-                      </Text>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </li>
-          ))}
+              </p>
+            ))}
 
           {draft && (
-            <li className={styles.draft}>
+            <div className={styles.draft}>
               <Sbar sbar={draft.sbar} missing="Nothing drafted" />
-            </li>
+
+              {/* Both read out of the dictation, both correctable, and neither
+                  optional — a handoff filed against the wrong patient is worse
+                  than one that was never sent. They sit with the draft they
+                  route, not down in the button bar. */}
+              <div className={styles.routing}>
+                <label className={styles.field}>
+                  <Text size="1" className={styles.fieldLabel}>
+                    About
+                  </Text>
+                  <select
+                    className={styles.select}
+                    value={patientId}
+                    onChange={(event) => setPatientId(event.target.value)}
+                  >
+                    <option value="">Choose a patient…</option>
+                    {patients.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className={styles.field}>
+                  <Text size="1" className={styles.fieldLabel}>
+                    Hand to
+                  </Text>
+                  <select
+                    className={styles.select}
+                    value={recipientId}
+                    onChange={(event) => setRecipientId(event.target.value)}
+                  >
+                    <option value="">Choose a clinician…</option>
+                    {others.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} · {c.org}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {/* Only when the reading matched nobody. With a patient already
+                    settled there is nothing to create, and offering it anyway is
+                    how duplicate charts get made. */}
+                {patientId === "" && (
+                  <NewPatient
+                    heardName={draft.patientName}
+                    patients={patients}
+                    onChose={(patient) => {
+                      setAdded((prev) =>
+                        prev.some((p) => p.id === patient.id) ? prev : [...prev, patient],
+                      );
+                      setPatientId(patient.id);
+                    }}
+                  />
+                )}
+              </div>
+            </div>
           )}
 
           <div ref={foot} />
-        </ol>
+        </div>
       )}
 
       {!idle && (
@@ -399,59 +515,6 @@ export function HandoffConsole({
             </Button>
           ) : draft ? (
             <>
-              {/* Both read out of the dictation, both correctable, and neither
-                  optional — a handoff filed against the wrong patient is worse
-                  than one that was never sent. */}
-              <label className={styles.recipient}>
-                <Text size="1" className={styles.patientLabel}>
-                  About
-                </Text>
-                <select
-                  className={styles.select}
-                  value={patientId}
-                  onChange={(event) => setPatientId(event.target.value)}
-                >
-                  <option value="">Choose a patient…</option>
-                  {patients.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              {/* Only when the reading matched nobody. With a patient already
-                  settled there is nothing to create, and offering it anyway is
-                  how duplicate charts get made. */}
-              {patientId === "" && (
-                <NewPatient
-                  heardName={draft.patientName}
-                  patients={patients}
-                  onChose={(patient) => {
-                    setAdded((prev) =>
-                      prev.some((p) => p.id === patient.id) ? prev : [...prev, patient],
-                    );
-                    setPatientId(patient.id);
-                  }}
-                />
-              )}
-              <label className={styles.recipient}>
-                <Text size="1" className={styles.patientLabel}>
-                  Hand to
-                </Text>
-                <select
-                  className={styles.select}
-                  value={recipientId}
-                  onChange={(event) => setRecipientId(event.target.value)}
-                >
-                  <option value="">Choose a clinician…</option>
-                  {others.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} · {c.org}
-                    </option>
-                  ))}
-                </select>
-              </label>
               <span className={styles.spacer} />
               <Button type="button" size="2" variant="ghost" color="gray" onClick={reset}>
                 Discard

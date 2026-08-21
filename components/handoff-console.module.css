@@ -1,41 +1,246 @@
+/* One column, one centre line. The mic, the feed and the buttons all measure
+   themselves against the same 42rem — which is also what keeps the SBAR inside
+   it stacked, since sbar.module.css only pairs its parts off at 56rem.
+
+   --gutter is the one indent in this file. The dot sits in it, and the
+   transcript, the sub-items and the notes all hang off its right edge, so
+   everything below the mic shares a left margin instead of three near-misses. */
 .console {
+  --gutter: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 42rem;
+  margin-inline: auto;
+}
+
+/* ---- the mic ---- */
+
+/* Centred in both states. Idle it is the whole screen; running it shrinks and
+   pins to the top. What it never does is move sideways: the thing you press
+   stays where you last pressed it. */
+.stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+/* Centred in the screen, not just in the column. The subtraction is what the
+   page above it costs: the shell's 1.75rem of top padding, the page header, and
+   the rule under it. Everything left over is the mic's, and it sits in the
+   middle of it. */
+.stage[data-idle="true"] {
+  justify-content: center;
+  min-height: calc(100dvh - 12rem);
+}
+
+/* Paper-coloured and ruled off, so the feed passes underneath it rather than
+   showing through. */
+.stage[data-idle="false"] {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  gap: 0.375rem;
+  padding: 1rem 0 0.875rem;
+  background: var(--color-background);
+  border-bottom: 1px solid var(--gray-4);
+}
+
+/* Corti's own button, left alone. A ring while it is listening, and that is the
+   whole treatment — it is now driven by the recording state rather than by the
+   first word transcribed, so it goes out again when you stop. */
+.mic[data-live="true"] {
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px var(--gray-4);
+}
+
+/* The machine's voice, the same one the elapsed times and due dates use. */
+.status {
+  font-family: var(--code-font-family);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gray-11);
+}
+
+.hint {
+  text-align: center;
+  max-width: 20rem;
+}
+
+/* ---- feed ---- */
+
+.feed {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
 }
 
-/* At rest this is the whole screen: one patient, one microphone, centred. Once
-   there is a transcript it shrinks to a header and the feed takes over. */
-.stage {
+/* What was said, before anything was made of it. Same rule the inbox puts
+   beside a quote, because it means the same thing here. */
+.said {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 0.875rem;
+  gap: 0.375rem;
 }
 
-.stage[data-idle="true"] {
-  justify-content: center;
-  min-height: 24rem;
+.saidLabel {
+  font-family: var(--code-font-family);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gray-10);
 }
 
-.stage[data-idle="false"] {
-  align-items: flex-start;
-  flex-direction: row;
+.transcript {
+  font-family: var(--code-font-family);
+  font-size: var(--font-size-1);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  color: var(--gray-11);
+  border-left: 2px solid var(--gray-5);
+  padding-left: calc(var(--gutter) - 2px);
+  max-height: 16rem;
+  overflow-y: auto;
+}
+
+/* ---- the run ---- */
+
+/* All five, always, so the run reads as five things with three done rather than
+   as three things that happened. The spine is the rule they hang off. */
+.steps {
+  position: relative;
+  list-style: none;
+}
+
+.steps::before {
+  content: "";
+  position: absolute;
+  top: 0.5rem;
+  bottom: 0.5rem;
+  left: 4px;
+  width: 1px;
+  background: var(--gray-4);
+}
+
+/* Mark, label, elapsed — the same three-part row the inbox uses for a task. */
+.step {
+  display: grid;
+  grid-template-columns: 9px minmax(0, 1fr) auto;
+  align-items: baseline;
+  column-gap: calc(var(--gutter) - 9px);
+  row-gap: 0.25rem;
+  padding: 0.5rem 0;
+}
+
+/* Nothing has run yet, so it is barely there. */
+.step[data-state="pending"] {
+  color: var(--gray-9);
+}
+
+/* Hollow while it runs, filled when it lands — the same reading as the gutter
+   mark on a task row, and hollow-and-dim for a step that has not started. */
+.dot {
+  align-self: center;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--gray-8);
+  border-radius: 50%;
+  /* Sits on the spine rather than beside it. */
+  background: var(--color-background);
+}
+
+.dot[data-state="pending"] {
+  border-color: var(--gray-6);
+}
+
+.dot[data-state="done"] {
+  background: var(--gray-8);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dot[data-state="running"] {
+    animation: breathe 1.8s ease-in-out infinite;
+  }
+}
+
+@keyframes breathe {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.stepLabel {
+  font-family: var(--code-font-family);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: inherit;
+}
+
+/* What the step found, in the reader's own face — the label above it is the
+   machine naming the work, this is the answer. */
+.detail {
+  grid-column: 2 / -1;
+  color: var(--gray-12);
+}
+
+.step[data-state="pending"] .detail {
+  color: inherit;
+}
+
+.items {
+  grid-column: 2 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  list-style: none;
+  margin-top: 0.125rem;
+}
+
+/* Pushed to the right and set in the mono face, like every other
+   machine-measured number on screen — it is a readout, not part of the
+   sentence. */
+.elapsed {
+  font-family: var(--code-font-family);
+  font-variant-numeric: tabular-nums;
+  color: var(--gray-9);
+}
+
+/* How the run ended, when it did not end in a draft. */
+.note {
+  padding-left: var(--gutter);
+}
+
+/* ---- the drafted handoff ---- */
+
+/* The four parts are components/sbar, shared with the inbox. This is only the
+   rule that separates them from the run above. */
+.draft {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--gray-4);
+}
+
+/* Where it is going, sitting with what is going — not down in the button bar
+   with Discard. */
+.routing {
+  display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
-  padding-bottom: 1.25rem;
-  border-bottom: 1px solid var(--gray-4);
+  align-items: flex-end;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--gray-3);
 }
 
-.patient,
-.recipient {
+.field {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
   align-items: flex-start;
 }
 
-.patientLabel {
+.fieldLabel {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--gray-10);
@@ -57,100 +262,17 @@
   outline-offset: -1px;
 }
 
-/* The one thing you press. A live ring while it is listening — the only motion
-   on the page, and it means the microphone is open. */
-.mic[data-live="true"] {
-  border-radius: 50%;
-  box-shadow: 0 0 0 4px var(--gray-4);
-}
-
-.hint {
-  text-align: center;
-}
-
-/* ---- feed ---- */
-
-.feed {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  list-style: none;
-  max-width: 42rem;
-}
-
-.entry {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-}
-
-.entryHead {
-  display: flex;
-  align-items: baseline;
-  gap: 0.625rem;
-}
-
-/* Hollow while it runs, filled when it lands — the same reading as the gutter
-   mark on a task row. */
-.dot {
-  flex: none;
-  align-self: center;
-  width: 9px;
-  height: 9px;
-  border: 1.5px solid var(--gray-8);
-  border-radius: 50%;
-}
-
-.dot[data-state="done"] {
-  background: var(--gray-8);
-}
-
-/* Pushed to the right and set in the mono face, like every other machine-measured
-   number on screen — it is a readout, not part of the sentence. */
-.elapsed {
-  margin-left: auto;
-  font-family: var(--code-font-family);
-  font-variant-numeric: tabular-nums;
-  color: var(--gray-9);
-}
-
-.items {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-  list-style: none;
-  padding-left: 1.25rem;
-  border-left: 1px solid var(--gray-4);
-  margin-left: 4px;
-}
-
-.transcript {
-  font-family: var(--code-font-family);
-  font-size: var(--font-size-1);
-  line-height: 1.7;
-  white-space: pre-wrap;
-  color: var(--gray-11);
-  border-left: 2px solid var(--gray-5);
-  padding-left: 0.875rem;
-  margin-left: 4px;
-  max-height: 16rem;
-  overflow-y: auto;
-}
-
-/* ---- the drafted handoff ---- */
-
-/* The four parts are components/sbar, shared with the inbox. This is only the
-   rule that separates them from the feed above. */
-.draft {
-  padding-top: 1rem;
-  border-top: 1px solid var(--gray-4);
-}
-
+/* Held to the floor of the window: a run is long enough to scroll, and the
+   button that ends it should not be somewhere below the fold. */
 .actions {
+  position: sticky;
+  bottom: 0;
   display: flex;
   align-items: flex-end;
   gap: 0.75rem;
-  max-width: 42rem;
+  padding: 0.875rem 0;
+  background: var(--color-background);
+  border-top: 1px solid var(--gray-4);
 }
 
 .spacer {
@@ -158,6 +280,22 @@
 }
 
 @media (max-width: 40rem) {
+  .console {
+    --gutter: 1.5rem;
+  }
+
+  /* No room for a readout beside the label: it drops under it, where the
+     step's own answer already sits. */
+  .step {
+    grid-template-columns: 9px minmax(0, 1fr);
+  }
+
+  /* No explicit row: it takes the next one, and everything after it flows on
+     behind. Pinning it would let the detail below auto-place on top of it. */
+  .elapsed {
+    grid-column: 2;
+  }
+
   .actions {
     flex-wrap: wrap;
   }

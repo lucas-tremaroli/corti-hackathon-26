@@ -4,17 +4,21 @@ import type { GraphRow } from "./queries";
  * Everything the graph view knows about how the graph looks, with no React and
  * no DOM in it, so it can be checked without a browser.
  *
- * Note is deliberately absent: it is commentary on a task rather than a link in
- * the chain from something being said to somebody owing work. Putting it back is
- * one entry in NODE_KINDS — the rest of the pipeline reads the map.
+ * Four kinds, which is the whole of a handoff: who was involved, who it was
+ * about, and what is owed. Fact, Conversation and Note are deliberately absent —
+ * a sentence somebody said is not a party to the handoff, and the picture read
+ * as a wall of them. What became of a fact is the Task hanging off it, and the
+ * text itself is on /inbox where there is room to read it.
+ *
+ * Anything graphShape() returns that is missing here is silently not drawn, so
+ * the map and the query have to agree. Putting a kind back is one entry — the
+ * rest of the pipeline reads the map.
  */
 export const NODE_KINDS = {
   Patient: { radius: 15, caption: (p: Props) => str(p.name) },
   Clinician: { radius: 13, caption: (p: Props) => str(p.name) },
-  Conversation: { radius: 13, caption: (p: Props) => str(p.title) },
   Handoff: { radius: 11, caption: () => "Handoff" },
   Task: { radius: 10, caption: (p: Props) => str(p.title) },
-  Fact: { radius: 8, caption: (p: Props) => str(p.text) },
 } as const;
 
 export type NodeKind = keyof typeof NODE_KINDS;
@@ -26,8 +30,6 @@ export type GraphNode = {
   id: string;
   kind: NodeKind;
   caption: string;
-  /** True only for a Fact nothing came of — see unclaimed() in queries.ts. */
-  unclaimed: boolean;
   props: Record<string, string>;
 };
 
@@ -76,7 +78,6 @@ export function toGraph(rows: GraphRow[]): { nodes: GraphNode[]; edges: GraphEdg
       id: row.id,
       kind: row.kind,
       caption: truncate(NODE_KINDS[row.kind].caption(row.props), CAPTION_MAX),
-      unclaimed: row.unclaimed === true,
       props: readable(row.props),
     });
   }
@@ -125,12 +126,27 @@ export function seedPositions(nodes: GraphNode[]) {
   return seeded;
 }
 
-/** Node ids one hop from this one, either direction. Drives the dimming. */
-export function neighbours(edges: GraphEdge[], id: string) {
-  const near = new Set<string>([id]);
-  for (const edge of edges) {
-    if (edge.source === id) near.add(edge.target);
-    if (edge.target === id) near.add(edge.source);
+/**
+ * How far every node within `hops` sits from this one, either direction, as
+ * id → distance. Drives the dimming.
+ *
+ * Two hops rather than one because one hop stops short of the point: from a task
+ * you reach its patient and its owner, but not the handoff that should have
+ * carried it. The second ring is where the answer usually is.
+ *
+ * Distance rather than a plain set, so the two rings can be drawn differently —
+ * on a graph this small, flattening both to "lit" lights up nearly everything
+ * and says nothing. A node is only ever reached at its shortest distance: each
+ * pass expands the ring at exactly `hop - 1`, so an earlier, closer answer is
+ * never overwritten by a longer way round.
+ */
+export function neighbours(edges: GraphEdge[], id: string, hops = 2) {
+  const near = new Map<string, number>([[id, 0]]);
+  for (let hop = 1; hop <= hops; hop++) {
+    for (const edge of edges) {
+      if (near.get(edge.source) === hop - 1 && !near.has(edge.target)) near.set(edge.target, hop);
+      if (near.get(edge.target) === hop - 1 && !near.has(edge.source)) near.set(edge.source, hop);
+    }
   }
   return near;
 }

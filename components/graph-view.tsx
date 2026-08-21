@@ -281,7 +281,14 @@ export function GraphView({ nodes, edges }: { nodes: GraphNode[]; edges: GraphEd
               const a = placed[edge.source];
               const b = placed[edge.target];
               if (!a || !b) return null;
-              const adjacent = near ? near.has(edge.source) && near.has(edge.target) : false;
+              // An edge belongs to the selection when both ends do, and sits at
+              // the distance of its far end — so the second ring fades with the
+              // nodes it connects rather than staying as loud as the first.
+              const from = near?.get(edge.source);
+              const to = near?.get(edge.target);
+              const depth =
+                from === undefined || to === undefined ? undefined : Math.max(from, to);
+              const adjacent = depth !== undefined;
               const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
 
               return (
@@ -289,6 +296,7 @@ export function GraphView({ nodes, edges }: { nodes: GraphNode[]; edges: GraphEd
                   key={edge.id}
                   className={styles.edge}
                   data-adjacent={adjacent}
+                  data-depth={depth}
                   data-dimmed={near !== null && !adjacent}
                 >
                   <line
@@ -299,7 +307,10 @@ export function GraphView({ nodes, edges }: { nodes: GraphNode[]; edges: GraphEd
                     className={styles.line}
                     markerEnd="url(#graph-arrow)"
                   />
-                  {(SHOW_ALL_REL_LABELS || adjacent) && (
+                  {/* Only the first ring is labelled: the second exists to give
+                      the neighbourhood context, and naming all of it puts a wall
+                      of words over the picture. */}
+                  {(SHOW_ALL_REL_LABELS || depth === 1) && (
                     <text x={mid.x} y={mid.y} className={styles.relLabel}>
                       {edge.type}
                     </text>
@@ -318,8 +329,8 @@ export function GraphView({ nodes, edges }: { nodes: GraphNode[]; edges: GraphEd
                   key={node.id}
                   className={styles.node}
                   data-kind={node.kind}
-                  data-unclaimed={node.unclaimed}
                   data-selected={selected === node.id}
+                  data-depth={near?.get(node.id)}
                   data-dimmed={near !== null && !near.has(node.id)}
                   transform={`translate(${at.x},${at.y})`}
                   tabIndex={0}
@@ -384,16 +395,15 @@ export function GraphView({ nodes, edges }: { nodes: GraphNode[]; edges: GraphEd
           Legend
         </Text>
         <ul className={styles.legend}>
-          {Object.keys(NODE_KINDS).map((kind) => (
+          {/* The kinds on screen, not every kind we can draw — the graph is
+              scoped to handoffs now, and a swatch for something absent is a key
+              to a door that isn't there. */}
+          {[...new Set(nodes.map((node) => node.kind))].map((kind) => (
             <li key={kind} className={styles.legendItem}>
               <span className={styles.swatch} data-kind={kind} aria-hidden />
               <Text size="1">{kind}</Text>
             </li>
           ))}
-          <li className={styles.legendItem}>
-            <span className={styles.swatch} data-kind="Fact" data-unclaimed="true" aria-hidden />
-            <Text size="1">Nothing came of it</Text>
-          </li>
         </ul>
       </aside>
 

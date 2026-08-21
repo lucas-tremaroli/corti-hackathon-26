@@ -163,25 +163,41 @@ export type GraphRow = {
   id: string;
   kind: string;
   props: Record<string, unknown>;
-  unclaimed: boolean;
   out: { to: string; type: string }[];
 };
 
 /**
- * Every node type carries an `id` property, which is what makes one sweep
- * possible. collect() drops the nulls an OPTIONAL MATCH leaves behind, so a fact
- * nothing came of arrives here with an empty `out` — the absence is the data.
+ * The handoffs and only what a handoff is made of: who handed it to whom about
+ * which patient (the parties), and the work owed on that patient with the
+ * clinician who owes it (what was asked, and where it got to).
+ *
+ * Everything else a sweep over `MATCH (n)` used to drag in — conversations,
+ * transcripts, every fact anyone said — is scenery. It made the picture look
+ * busy and say less. What a fact came to is the task hanging off it, and the
+ * task is on screen; the fact itself is on /inbox, where its text is readable.
+ *
+ * Tasks hang off the patient through FOR rather than off a carried fact:
+ * saveTasks() gives a gap task no BECAUSE_OF edge, so reaching work through the
+ * facts would hide exactly the work nobody was told about.
+ *
+ * collect() drops the nulls an OPTIONAL MATCH leaves behind. Edges out of the
+ * set — a handoff's CARRIES, a task's BECAUSE_OF — are collected here and
+ * dropped by toGraph, which draws no dangling ends.
  *
  * ORDER BY is not cosmetic: d3 seeds its initial placement from node index, so a
  * stable order is what makes the layout the same picture on every load.
  */
 export const graphShape = (limit = 300) =>
   rows<GraphRow>(
-    `MATCH (n) WHERE n.id IS NOT NULL
+    `MATCH (from:Clinician)-[:HANDED]->(h:Handoff)-[:TO]->(to:Clinician)
+     MATCH (h)-[:ABOUT]->(p:Patient)
+     OPTIONAL MATCH (t:Task)-[:FOR]->(p)
+     OPTIONAL MATCH (t)-[:OWNED_BY]->(owner:Clinician)
+     UNWIND [from, to, h, p, t, owner] AS n
+     WITH DISTINCT n WHERE n IS NOT NULL
      OPTIONAL MATCH (n)-[r]->(m) WHERE m.id IS NOT NULL
      WITH n, collect(CASE WHEN m IS NULL THEN null ELSE {to: m.id, type: type(r)} END) AS out
-     RETURN n.id AS id, labels(n)[0] AS kind, properties(n) AS props, out,
-            (n:Fact AND ${unclaimed("n")}) AS unclaimed
+     RETURN n.id AS id, labels(n)[0] AS kind, properties(n) AS props, out
      ORDER BY kind, id
      LIMIT $limit`,
     { limit: neo4j.int(limit) },

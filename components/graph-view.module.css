@@ -125,14 +125,6 @@
   border-color: var(--blue-9);
 }
 
-.node[data-kind="Conversation"] .dot,
-.swatch[data-kind="Conversation"] {
-  fill: var(--cyan-4);
-  background: var(--cyan-4);
-  stroke: var(--cyan-9);
-  border-color: var(--cyan-9);
-}
-
 .node[data-kind="Handoff"] .dot,
 .swatch[data-kind="Handoff"] {
   fill: var(--plum-4);
@@ -147,24 +139,6 @@
   background: var(--grass-4);
   stroke: var(--grass-9);
   border-color: var(--grass-9);
-}
-
-.node[data-kind="Fact"] .dot,
-.swatch[data-kind="Fact"] {
-  fill: var(--amber-4);
-  background: var(--amber-4);
-  stroke: var(--amber-9);
-  border-color: var(--amber-9);
-}
-
-/* Said, and nothing came of it. Hollow reads the same here as the gutter mark on
-   a task row: nobody carried this. The dash is what you see across the canvas
-   before you have read a single caption. */
-.node[data-unclaimed="true"] .dot,
-.swatch[data-unclaimed="true"] {
-  fill: none;
-  background: none;
-  stroke-dasharray: 3 2.5;
 }
 
 .node[data-selected="true"] .dot {
@@ -191,6 +165,15 @@
 .node[data-dimmed="true"],
 .edge[data-dimmed="true"] {
   opacity: 0.15;
+}
+
+/* Two rings answer the question, and they are not the same answer: what touches
+   this node directly stays at full strength, what is one node further is held
+   back — present, clearly second. Without the gap both rings read as "lit" and
+   the highlight stops meaning anything on a graph this small. */
+.node[data-depth="2"],
+.edge[data-depth="2"] {
+  opacity: 0.5;
 }
 
 @media (prefers-reduced-motion: no-preference) {
