@@ -83,23 +83,38 @@ export async function browserCredentials() {
 
 // Corti Models is OpenAI-compatible and lives on its own host; the SDK has no
 // client for it, so this one stays a raw fetch.
+// Measured at 3–20s for these prompts. Past that it is not slow, it is stuck —
+// and a request with no deadline is a board that never paints, with nothing on
+// screen to say so. Long enough to survive a bad minute, short enough to retry
+// inside a demo beat.
+const CHAT_TIMEOUT_MS = 45_000;
+
 export async function chat<T>(prompt: string, attempt = 0): Promise<T> {
   const { tenant, environment } = cfg();
-  const res = await fetch(`https://ai.${environment}.corti.app/v1/chat/completions`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${await accessToken()}`,
-      "Tenant-Name": tenant,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "corti-s1",
-      // Same conversation must produce the same board twice running.
-      temperature: 0,
-      response_format: { type: "json_object" },
-      messages: [{ role: "user", content: prompt }],
-    }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`https://ai.${environment}.corti.app/v1/chat/completions`, {
+      method: "POST",
+      signal: AbortSignal.timeout(CHAT_TIMEOUT_MS),
+      headers: {
+        Authorization: `Bearer ${await accessToken()}`,
+        "Tenant-Name": tenant,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "corti-s1",
+        // Same conversation must produce the same board twice running.
+        temperature: 0,
+        response_format: { type: "json_object" },
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+  } catch (error) {
+    // A timed-out request is worth exactly one more go; a second stall is the
+    // service, not the weather.
+    if (attempt === 0) return chat<T>(prompt, 1);
+    throw new Error(`Corti chat gave up after ${CHAT_TIMEOUT_MS / 1000}s: ${error}`);
+  }
   // This call is the demo. It 500s occasionally and the identical prompt then
   // succeeds, so one retry rather than a dead board on stage.
   if (res.status >= 500 && attempt === 0) return chat<T>(prompt, 1);

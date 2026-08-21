@@ -1,0 +1,55 @@
+.draft {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-top: 2rem;
+  max-width: 42rem;
+}
+
+/* Same one-label-and-a-hairline as the task sections, so the four parts read as
+   a peer of the record rather than as a form. */
+.label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.375rem;
+  border-bottom: 1px solid var(--gray-4);
+}
+
+.labelText {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gray-10);
+}
+
+.parts {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.part {
+  display: grid;
+  grid-template-columns: 8rem minmax(0, 1fr);
+  gap: 1rem;
+  align-items: baseline;
+}
+
+/* Typography carries the hierarchy — the part name is the only thing that has
+   to be scannable when someone reads four of these in a row. */
+.partLabel {
+  color: var(--gray-10);
+}
+
+.action {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 40rem) {
+  .part {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.25rem;
+  }
+}

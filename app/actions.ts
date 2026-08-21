@@ -1,21 +1,26 @@
 "use server";
 
-import { eq, inArray } from "drizzle-orm";
+import { readFile } from "node:fs/promises";
 import { refresh } from "next/cache";
 import { createInteraction, extractFacts, predictCodes } from "@/lib/corti";
-import { db } from "@/lib/db";
-import { getUpdatesFor } from "@/lib/queries";
-import { episodes, type UpdateKind, taskUpdates, tasks } from "@/lib/schema";
+import { draftSbar, type Sbar } from "@/lib/handoff";
+import type { NoteKind } from "@/lib/model";
+import { notesFor, taskWithNotes } from "@/lib/queries";
 import { checkClosure, classifySteps, type Closure, type Role, sopForCodes, sopStep } from "@/lib/sop";
+import * as write from "@/lib/writes";
 
-const addDays = (from: Date, days: number) => new Date(from.getTime() + days * 86_400_000);
-
-// The whole pipeline: conversation in, protocol-grounded tasks out. Every task
-// starts "proposed" — nothing reaches an inbox until a human approves it.
+/**
+ * Conversation in, handoff out. Everything lands in the graph in one pass: the
+ * facts that were said, the protocol's tasks hanging off the facts that justify
+ * them, and an SBAR draft that nobody has sent yet.
+ */
 export async function ingestTranscript(input: {
+  patientId: string;
   patientName: string;
   title: string;
   transcript: string;
+  fromId: string;
+  toId: string;
 }) {
   const [facts, codes] = await Promise.all([
     extractFacts(input.transcript),
@@ -26,57 +31,95 @@ export async function ingestTranscript(input: {
   if (!sop) throw new Error("No protocol matches the codes for this conversation");
 
   const verdicts = await classifySteps(sop.steps, facts);
+  const conversationId = crypto.randomUUID();
 
-  const [episode] = await db
-    .insert(episodes)
-    .values({ ...input, codes, sopId: sop.id })
-    .returning();
+  await write.saveConversation({ ...input, id: conversationId, facts });
+  await write.saveTasks(conversationId, input.patientId, sop.steps, verdicts);
 
-  await db.insert(tasks).values(
-    sop.steps.map((step) => ({
-      episodeId: episode.id,
-      title: step.title,
-      assigneeRole: step.role,
-      dueAt: addDays(episode.dischargedAt, step.dueInDays),
-      evidence: verdicts.find((v) => v.id === step.id)?.evidence ?? "",
-      sopStepId: step.id,
-      source: "sop" as const,
-    })),
-  );
+  const sbar = await draftSbar({
+    patientName: input.patientName,
+    title: input.title,
+    facts,
+    gaps: verdicts
+      .filter((v) => v.status === "gap")
+      .map((v) => sop.steps.find((s) => s.id === v.id)?.title ?? v.id),
+  });
+
+  // Carries the facts a task already accounts for. What it does not carry is the
+  // point of the graph screen.
+  const handoffId = crypto.randomUUID();
+  await write.saveHandoff({
+    id: handoffId,
+    patientId: input.patientId,
+    fromId: input.fromId,
+    toId: input.toId,
+    sbar,
+    factIds: verdicts
+      .filter((v) => v.factIndex >= 0)
+      .map((v) => write.factId(conversationId, v.factIndex)),
+  });
 
   refresh();
-  return episode.id;
+  return handoffId;
 }
 
-// Rejected tasks are left "proposed" rather than deleted: they stay out of every
-// inbox, and the episode still records what the protocol asked for.
-export async function approveTasks(taskIds: string[]) {
-  if (taskIds.length === 0) return;
-  await db.update(tasks).set({ status: "open" }).where(inArray(tasks.id, taskIds));
+/**
+ * Beat one, without a microphone. The live ambient path produces the same
+ * transcript; this is the one that survives a bad room.
+ */
+export async function ingestDemoDischarge() {
+  return ingestTranscript({
+    patientId: "jane-smith",
+    patientName: "Jane Smith",
+    title: "New-onset atrial fibrillation",
+    transcript: await readFile("demo/discharge.txt", "utf8"),
+    fromId: "cardiology",
+    toId: "gp",
+  });
+}
+
+/** Nothing reaches the other side until a clinician has read the four parts. */
+export async function sendHandoff(id: string, sbar: Sbar) {
+  await write.sendHandoff(id, sbar);
+  refresh();
+}
+
+export async function acceptHandoff(id: string) {
+  await write.acceptHandoff(id);
+  refresh();
+}
+
+export async function assignFact(input: {
+  factId: string;
+  title: string;
+  role: Role;
+  dueInDays: number;
+}) {
+  await write.taskFromFact(input);
   refresh();
 }
 
 export type Completion = Closure & { done: boolean };
 
-// Marking a task done is a claim that the protocol's criteria were met, and the
-// comments on the task are the only record of that. The reading of that record
-// already happened — every comment updates task.closure — so this is a
-// comparison, not a call to Corti.
+/**
+ * Marking a task done is a claim that the protocol's criteria were met, and the
+ * notes on the task are the only record of that. The reading already happened —
+ * every note updates the closure — so this is a comparison, not a call to Corti.
+ */
 export async function completeTask(taskId: string): Promise<Completion> {
-  const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId));
-  if (!task) throw new Error("No such task");
+  const found = await taskWithNotes(taskId);
+  if (!found) throw new Error("No such task");
 
-  const step = sopStep(task.sopStepId);
+  const step = sopStep(found.task.stepId);
   // ponytail: a task that didn't come from a protocol has no criteria to check
-  // against, so it closes on the assignee's word. A task with no comments yet
-  // gets the empty verdict — checkClosure answers that one without a round trip.
+  // against, so it closes on the assignee's word.
   const closure: Closure = step
-    ? (task.closure ?? (await checkClosure(step, [])))
+    ? (found.task.closure ?? (await checkClosure(step, [])))
     : { criteria: [], missing: "" };
 
   const done = closure.criteria.every((c) => c.met);
   if (done) {
-    await db.update(tasks).set({ status: "done" }).where(eq(tasks.id, taskId));
+    await write.markDone(taskId);
     refresh();
   }
   return { ...closure, done };
@@ -91,33 +134,23 @@ export async function startAmbient(taskId: string, taskTitle: string) {
 
 export async function addUpdate(input: {
   taskId: string;
-  kind: UpdateKind;
+  kind: NoteKind;
   text: string;
   authorRole: Role;
   interactionId?: string;
 }) {
-  const [[task], threads] = await Promise.all([
-    db.select().from(tasks).where(eq(tasks.id, input.taskId)),
-    getUpdatesFor([input.taskId]),
+  const [found, threads] = await Promise.all([
+    taskWithNotes(input.taskId),
+    notesFor([input.taskId]),
   ]);
-  const step = task ? sopStep(task.sopStepId) : null;
-  const comments = [...(threads.get(input.taskId) ?? []).map((c) => c.text), input.text];
+  const step = sopStep(found?.task.stepId ?? null);
+  const comments = [...(threads.get(input.taskId) ?? []).map((n) => n.text), input.text];
 
-  // Both readings of this comment happen here, while the composer is already
-  // showing "Saving…". Re-reading the thread against the protocol now is what
-  // makes Mark done a comparison later instead of a wait.
-  // Neither reading is allowed to cost someone the words they just spoke, so a
-  // Corti failure here leaves the comment saved and the previous verdict standing.
-  const [facts, closure] = await Promise.all([
-    // ponytail: a two-word "done" has no facts worth extracting and costs a
-    // roundtrip. Drop the threshold if the demo needs facts on every update.
-    input.text.length > 60 ? extractFacts(input.text).catch(() => null) : null,
-    step ? checkClosure(step, comments).catch(() => null) : null,
-  ]);
+  // Read this note against the protocol now, while the composer is still showing
+  // "Saving…" — that is what makes Mark done a comparison later instead of a
+  // wait. A Corti failure leaves the note saved and the previous verdict standing.
+  const closure = step ? await checkClosure(step, comments).catch(() => null) : null;
 
-  await Promise.all([
-    db.insert(taskUpdates).values({ ...input, facts }),
-    closure ? db.update(tasks).set({ closure }).where(eq(tasks.id, input.taskId)) : null,
-  ]);
+  await write.addNote({ ...input, closure });
   refresh();
 }

@@ -1,0 +1,72 @@
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--gray-4);
+}
+
+.query {
+  border-bottom: 1px solid var(--gray-4);
+}
+
+.queryHead {
+  padding: 0.5rem 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.queryHead::-webkit-details-marker {
+  display: none;
+}
+
+.queryHead:focus-visible {
+  outline: 2px solid var(--gray-8);
+  outline-offset: -2px;
+}
+
+.queryLabel {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gray-10);
+}
+
+.cypher {
+  font-family: var(--code-font-family);
+  font-size: var(--font-size-1);
+  line-height: 1.7;
+  white-space: pre;
+  overflow-x: auto;
+  color: var(--gray-11);
+  border-left: 2px solid var(--gray-5);
+  padding: 0 0 0 0.875rem;
+  margin: 0.25rem 0 1.25rem;
+}
+
+.rows {
+  list-style: none;
+  margin-top: 1rem;
+}
+
+.row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--gray-3);
+}
+
+/* The quote is the loudest thing on the page. It is what somebody said and
+   nobody carried — nothing else here earns that weight. */
+.said {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-width: 42rem;
+}
+
+.empty {
+  margin-top: 2.5rem;
+}

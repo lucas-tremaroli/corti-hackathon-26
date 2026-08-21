@@ -31,11 +31,3 @@ export async function close() {
   await driver?.close();
   driver = null;
 }
-
-// The query the product exists for: facts said in a conversation that reached
-// no task and no handoff. The dizziness that never got to the GP.
-export const ORPHAN_FACTS = `
-MATCH (f:Fact)-[:SAID_IN]->(c:Conversation)-[:ABOUT]->(p:Patient)
-WHERE NOT (f)<-[:BECAUSE_OF]-(:Task) AND NOT (f)<-[:CARRIES]-(:Handoff)
-RETURN p.name AS patient, f.text AS fact
-`;

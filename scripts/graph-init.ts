@@ -3,7 +3,7 @@ import { close, rows } from "../lib/graph";
 // Every node we create is looked up by id, so each one gets a uniqueness
 // constraint — which Neo4j backs with an index. That's the whole schema:
 // labels and relationships need no declaration.
-const labels = ["Patient", "Clinician", "Conversation", "Fact", "Task", "Handoff"];
+const labels = ["Patient", "Clinician", "Conversation", "Fact", "Task", "Handoff", "Note"];
 
 for (const label of labels) {
   await rows(

@@ -1,69 +1,79 @@
-import Image from "next/image";
+import { Heading, Text } from "@radix-ui/themes";
+import { HandoffDraft } from "@/components/handoff-draft";
+import { Ingest } from "@/components/ingest";
+import { Rail } from "@/components/rail";
+import { Shell } from "@/components/shell";
+import { latestConversation } from "@/lib/queries";
 import styles from "./page.module.css";
 
-export default function Home() {
+// Neo4j reads are invisible to the cache, so without this the graph is baked in
+// at build time and the demo shows a board that never moves.
+export const dynamic = "force-dynamic";
+
+export default async function HandoffPage() {
+  const conversation = await latestConversation();
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>
-            To get started, edit the{" "}
-            <code className={styles.code}>page.tsx</code> file.
-          </h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <Shell rail={<Rail current="/" />}>
+      {conversation === null ? (
+        <>
+          <header className={styles.head}>
+            <Heading as="h1" size="4" weight="medium">
+              Handoff
+            </Heading>
+          </header>
+          <div className={styles.empty}>
+            <Text as="p" size="2" color="gray">
+              No conversation yet. Record the discharge, or take the one on file.
+            </Text>
+            <Ingest />
+          </div>
+        </>
+      ) : (
+        <>
+          <header className={styles.head}>
+            <Heading as="h1" size="4" weight="medium">
+              {conversation.patient.name}
+            </Heading>
+            <Text size="2" color="gray">
+              {conversation.title}
+            </Text>
+          </header>
+
+          {/* Evidence on expand, never dumped: the transcript and what Corti
+              pulled out of it are both one disclosure away. */}
+          <details className={styles.source}>
+            <summary className={styles.sourceHead}>
+              <Text size="1" className={styles.sourceLabel}>
+                Conversation
+              </Text>
+              <Text size="1" color="gray">
+                {conversation.facts.length} facts
+              </Text>
+            </summary>
+            <div className={styles.sourceBody}>
+              <pre className={styles.transcript}>{conversation.transcript}</pre>
+              <ul className={styles.facts}>
+                {conversation.facts.map((fact) => (
+                  <li key={fact.id}>
+                    <Text size="2">{fact.text}</Text>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </details>
+
+          {conversation.handoff ? (
+            <HandoffDraft handoff={conversation.handoff} recipient="the GP" />
+          ) : (
+            <div className={styles.empty}>
+              <Text as="p" size="2" color="gray">
+                This conversation has no handoff drafted against it.
+              </Text>
+            </div>
+          )}
+        </>
+      )}
+    </Shell>
   );
 }

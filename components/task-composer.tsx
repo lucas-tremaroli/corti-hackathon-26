@@ -3,8 +3,8 @@
 import { Button, Callout, SegmentedControl, TextArea } from "@radix-ui/themes";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { addUpdate, startAmbient } from "@/app/actions";
+import type { NoteKind } from "@/lib/model";
 import type { Role } from "@/lib/sop";
-import type { UpdateKind } from "@/lib/schema";
 import { Ambient } from "./ambient";
 import { Dictation } from "./dictation";
 import styles from "./task-composer.module.css";
@@ -34,12 +34,12 @@ export function TaskComposer({
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   // Whichever input last contributed words decides how the update is filed.
-  const [kind, setKind] = useState<UpdateKind>("typed");
+  const [kind, setKind] = useState<NoteKind>("typed");
   const [mode, setMode] = useState<Mode>("note");
   const [interactionId, setInteractionId] = useState<string>();
   const [pending, run] = useTransition();
 
-  const append = (next: UpdateKind) => (chunk: string) => {
+  const append = (next: NoteKind) => (chunk: string) => {
     setKind(next);
     setText((prev) => (prev ? `${prev} ${chunk}` : chunk));
   };

@@ -1,12 +1,11 @@
 import { chat } from "./corti";
 
-export type Role = "GP" | "MunicipalNursing" | "MunicipalRehab" | "Hospital";
+export type Role = "Cardiology" | "GP" | "Imaging";
 
 export const ROLES: Record<Role, { short: string; long: string }> = {
-  GP: { short: "GP", long: "General practice" },
-  MunicipalNursing: { short: "Nursing", long: "Municipal nursing" },
-  MunicipalRehab: { short: "Rehab", long: "Municipal rehab" },
-  Hospital: { short: "Hospital", long: "Hospital" },
+  Cardiology: { short: "Cardiology", long: "Cardiology" },
+  GP: { short: "GP", long: "Primary care" },
+  Imaging: { short: "Imaging", long: "Imaging" },
 };
 
 export type SopStep = {
@@ -21,91 +20,92 @@ export type SopStep = {
 };
 
 // Illustrative, not a validated clinical guideline. Say so on stage.
-export const POST_FALL_DISCHARGE = {
-  id: "post-fall-discharge",
-  name: "Elderly post-fall discharge",
-  icd10Prefixes: ["W01", "W18", "W19", "S72"],
+//
+// The steps describe the edges that should exist after this discharge: which
+// kind of fact ought to reach which role, and by when. Reality is the edges that
+// do exist, and the diff is the product.
+export const NEW_AF_DISCHARGE = {
+  id: "new-af-discharge",
+  name: "New-onset atrial fibrillation, discharge",
+  // Matched against every system Corti codes in, not just ICD-10. On this
+  // conversation ICD-10 lands on I49.9, "arrhythmia, unspecified", while SNOMED
+  // names atrial fibrillation outright — so the specific code is the one that
+  // picks the protocol, whichever system it came from.
+  selectedBy: ["I48", "49436004"],
   steps: [
     {
-      id: "medication-review",
-      title: "Medication review",
-      role: "GP",
-      dueInDays: 14,
-      trigger: "Any new medication started, or existing sedating, hypotensive or anticoagulant medication.",
-      closes: [
-        "The full medication list was reviewed with the patient.",
-        // Bounded by what the notes mention: "every anticoagulant" can't be
-        // confirmed from a note that doesn't happen to name one.
-        "Each sedating, blood-pressure or blood-thinning medicine mentioned has a decision recorded — continued, changed or stopped.",
-      ],
-    },
-    {
-      id: "orthostatic-bp",
-      title: "Lying and standing blood pressure check",
-      role: "GP",
-      dueInDays: 14,
-      trigger: "Dizziness, lightheadedness or blackouts, especially on standing.",
-      closes: [
-        "Blood pressure was measured both lying and standing, and the readings are recorded.",
-        "A significant drop has a plan against it, or the reading is recorded as normal.",
-      ],
-    },
-    {
-      id: "home-hazard-assessment",
-      title: "Home hazard assessment",
-      role: "MunicipalNursing",
+      id: "anticoagulation-decision",
+      title: "Anticoagulation decision",
+      role: "Cardiology",
       dueInDays: 7,
-      trigger: "Fall occurred at home, or the patient lives alone.",
+      trigger:
+        "Confirmed atrial fibrillation with a stroke risk score that warrants anticoagulation, or an anticoagulation decision left open.",
       closes: [
-        "Someone visited the home and went through it for hazards.",
-        "Each hazard found is either fixed or handed to a named service.",
+        "A decision is recorded: an anticoagulant was started, or a reason not to start it was written down.",
+        "If it was started, the drug and dose are named. If it was not, the date it will be revisited is named.",
       ],
     },
     {
-      id: "strength-balance-referral",
-      title: "Strength and balance programme referral",
-      role: "MunicipalRehab",
-      dueInDays: 30,
-      trigger: "Any fall in the last twelve months.",
-      closes: [
-        "The referral was sent to a named strength and balance programme.",
-        "The patient has a start date, or is on the waiting list and knows it.",
-      ],
-    },
-    {
-      id: "bone-health-review",
-      title: "Bone health and fracture risk review",
+      id: "bleeding-risk-bloods",
+      title: "Baseline bloods before anticoagulation",
       role: "GP",
-      dueInDays: 30,
-      trigger: "Fragility fracture, or osteoporosis treatment started or ongoing.",
+      dueInDays: 7,
+      trigger: "Anticoagulation is being considered or has been started.",
       closes: [
-        "Fracture risk was assessed, including calcium and vitamin D.",
-        "A decision on bone protection treatment is recorded.",
+        "Renal function and a full blood count were taken and the results are recorded.",
+        "Any result that changes the anticoagulant choice or dose has a decision against it.",
       ],
     },
     {
-      id: "falls-follow-up",
-      title: "Falls follow-up consultation",
+      id: "rate-control-review",
+      title: "Rate control review",
       role: "GP",
-      dueInDays: 30,
-      trigger: "Always applies after a fall resulting in admission.",
+      dueInDays: 14,
+      trigger: "A rate-control medicine was started or changed at discharge.",
       closes: [
-        "The consultation took place and the patient was seen.",
-        "Remaining falls risk factors and the next step for each are recorded.",
+        "The heart rate was measured after discharge and the reading is recorded.",
+        "The dose was continued, changed or stopped, and which one is recorded.",
+      ],
+    },
+    {
+      id: "echocardiogram",
+      title: "Echocardiogram",
+      role: "Imaging",
+      dueInDays: 21,
+      trigger: "Newly diagnosed atrial fibrillation without a recent echocardiogram.",
+      closes: [
+        "The scan was performed and the report is back.",
+        "Someone has read it and recorded what it changes, or that it changes nothing.",
+      ],
+    },
+    {
+      id: "rhythm-monitoring",
+      title: "Rhythm monitoring review",
+      role: "Cardiology",
+      dueInDays: 21,
+      trigger: "Ambulatory rhythm monitoring was arranged or is pending.",
+      closes: [
+        "The monitor was worn and the recording has been reported.",
+        "The burden of atrial fibrillation it showed is recorded, with what follows from it.",
       ],
     },
   ] satisfies SopStep[],
 };
 
+const PROTOCOLS = [NEW_AF_DISCHARGE];
+
 export function sopForCodes(codes: string[]) {
-  const hit = codes.some((c) => POST_FALL_DISCHARGE.icd10Prefixes.some((p) => c.startsWith(p)));
-  return hit ? POST_FALL_DISCHARGE : null;
+  return (
+    PROTOCOLS.find((sop) =>
+      codes.some((code) => sop.selectedBy.some((prefix) => code.startsWith(prefix))),
+    ) ?? null
+  );
 }
 
-// ponytail: one protocol, so the step id is enough to find it. Take the sop id
-// too once a second protocol exists.
+// ponytail: step ids are unique across protocols, so the id alone still finds
+// one. Take the sop id too if that ever stops being true.
 export const sopStep = (stepId: string | null) =>
-  POST_FALL_DISCHARGE.steps.find((s) => s.id === stepId) ?? null;
+  PROTOCOLS.flatMap((sop) => sop.steps).find((s) => s.id === stepId) ?? null;
 
 export type ClosureCheck = { text: string; met: boolean; evidence: string };
 export type Closure = { criteria: ClosureCheck[]; missing: string };
@@ -163,35 +163,55 @@ Return JSON: {"criteria":[{"index","met","evidence"}],"missing":""}`,
   };
 }
 
-export type StepVerdict = { id: string; status: "covered" | "gap"; evidence: string };
+// factIndex is which fact covered the step, or -1 for a gap. The task hangs off
+// that fact in the graph, so a fact with no task pointing at it is an orphan —
+// which only works if the model names the fact rather than paraphrasing it.
+export type StepVerdict = {
+  id: string;
+  status: "covered" | "gap";
+  evidence: string;
+  factIndex: number;
+};
 
 export async function classifySteps(
   steps: SopStep[],
   facts: { text: string }[],
 ): Promise<StepVerdict[]> {
-  const raw = await chat<{ steps?: { id?: string; status?: string; evidence?: string }[] }>(
+  const raw = await chat<{
+    steps?: { id?: string; status?: string; factIndex?: number }[];
+  }>(
     `You are checking whether a discharge conversation covered each step of a care protocol.
 
 Protocol steps:
 ${JSON.stringify(steps.map(({ id, title, trigger }) => ({ id, title, trigger })), null, 2)}
 
 Facts extracted from the conversation:
-${JSON.stringify(facts.map((f) => f.text))}
+${JSON.stringify(facts.map((text, index) => ({ index, text: text.text })), null, 2)}
 
-A step is "covered" only if a fact says it was performed, arranged, referred, booked or explicitly planned. Naming a symptom, condition or medication the step would address is not enough on its own — that is a "gap", and it is the case that matters most.
+A step is "covered" if a fact says it was performed, ordered, referred, booked or arranged. An order that has been placed counts, even if the date has not been set yet.
 
-Quote the supporting fact verbatim as evidence for covered steps, and use an empty string for gaps.
-Return JSON: {"steps":[{"id","status","evidence"}]}`,
+A step is a "gap" in two cases, and they are the cases that matter most:
+- The conversation only named a symptom, condition or medication the step would address, without acting on it.
+- The step was raised and then pushed into the future without being settled — "we'll come back to it", "let's park that", "consider it at follow-up", "reassess later". Deferring a decision is not making one, however settled it sounds.
+
+For a covered step give "factIndex": the index of the fact that covers it. For a gap use -1.
+Return JSON: {"steps":[{"id","status","factIndex"}]}`,
   );
 
   // Anything the model omits or garbles falls back to "gap": a false gap is a
   // redundant task, a false "covered" silently drops care.
   return steps.map((step) => {
     const verdict = raw.steps?.find((s) => s.id === step.id);
+    const factIndex = verdict?.factIndex ?? -1;
+    const fact = facts[factIndex];
+    // "covered" pointing at no real fact is the model being agreeable. Without a
+    // fact there is no edge to draw, so it is a gap.
+    const covered = verdict?.status === "covered" && fact !== undefined;
     return {
       id: step.id,
-      status: verdict?.status === "covered" ? "covered" : "gap",
-      evidence: typeof verdict?.evidence === "string" ? verdict.evidence : "",
+      status: covered ? "covered" : "gap",
+      evidence: covered ? fact.text : "",
+      factIndex: covered ? factIndex : -1,
     };
   });
 }

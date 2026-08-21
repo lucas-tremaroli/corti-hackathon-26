@@ -1,15 +1,14 @@
-Doctor: Right, Mrs Jensen, before you go home. You had the fall last Tuesday, tripped on the rug in the hallway, and you fractured your left hip.
-Patient: That's right. It all happened so fast.
-Doctor: The operation went well and the hip is healing nicely.
-Doctor: Now, your tablets. I've written to your GP asking her to go through the whole list with you within the fortnight, because a few of them can leave you unsteady on your feet.
-Patient: She's got the list, has she?
-Doctor: She'll have it today.
-Doctor: For the bones, I've started you on alendronate, one tablet a week. And I've asked her to review your fracture risk and your vitamin D at the same appointment.
-Patient: One a week. I'll write that down.
-Doctor: I've also referred you to the falls prevention group at the rehab centre. They'll do strength and balance work with you, and they should be in touch inside the month.
-Patient: I'd like that.
-Doctor: And I've booked you a follow-up with your GP in four weeks, to see how you're getting on after the fall.
-Patient: Doctor, I have been a bit dizzy in the mornings. When I get up out of bed.
-Doctor: Right. And you live on your own, is that right?
-Patient: On my own, yes. Since my husband passed.
-Doctor: Well. The physio will see you before you go, and the porter will take you down. Take care of yourself, Mrs Jensen.
+Doctor: Right, Mrs Smith, before you go home. You came in on Monday with your heart racing. That's atrial fibrillation — the top of the heart quivers instead of beating properly.
+Patient: And it's still doing that?
+Doctor: It is, but much slower now. You arrived at a hundred and thirty. You're sitting at about eighty-five today.
+Doctor: That's the metoprolol doing its work. Twenty-five milligrams, morning and night, and you keep taking it.
+Patient: Twenty-five, twice a day. I'll write it down.
+Doctor: I've written to your GP asking her to check your rate and how you're getting on with it in a couple of weeks.
+Doctor: I've also ordered a scan of your heart, an echocardiogram, to look at the valves and the size of the chambers. Imaging will write to you with a date, and it should be inside three weeks.
+Patient: All right.
+Doctor: And you'll wear a monitor for a fortnight, a little recorder, so we can see how much of the time you're in this rhythm. My team picks that up when the report comes back.
+Doctor: Then I'll see you in clinic in six weeks.
+Patient: Doctor, my sister takes a blood thinner for her heart. Is that something I should be on?
+Doctor: It's a fair question. There's a score we use, and yours does put you in the range where we would normally consider one.
+Patient: So do I start it?
+Doctor: Let's park that one and come back to it. The nurse will be along shortly to go through your discharge letter.

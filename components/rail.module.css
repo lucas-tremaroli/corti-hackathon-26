@@ -1,0 +1,39 @@
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.label {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gray-9);
+  padding: 0 0.625rem;
+  margin-bottom: 0.5rem;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.375rem 0.625rem;
+  border-radius: var(--radius-2);
+  color: var(--gray-11);
+  text-decoration: none;
+}
+
+.item:hover {
+  background: var(--gray-3);
+}
+
+.item[aria-current="page"] {
+  background: var(--gray-4);
+  color: var(--gray-12);
+}
+
+.count {
+  font-family: var(--code-font-family);
+  font-variant-numeric: tabular-nums;
+  color: var(--gray-9);
+}

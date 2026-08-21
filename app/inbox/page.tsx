@@ -1,93 +1,102 @@
 import { Heading, Text } from "@radix-ui/themes";
-import Link from "next/link";
+import { AcceptHandoff } from "@/components/accept-handoff";
 import { CompleteTask } from "@/components/complete-task";
+import { Rail } from "@/components/rail";
 import { Shell } from "@/components/shell";
 import { TaskComposer } from "@/components/task-composer";
-import { getInbox, getRoleCounts, getUpdatesFor } from "@/lib/queries";
-import { type Episode, isGap, isOverdue, type Task } from "@/lib/schema";
-import { ROLES, type Role, sopStep } from "@/lib/sop";
+import { SBAR_PARTS } from "@/lib/handoff";
+import { isGap, isOverdue } from "@/lib/model";
+import { clinicians, inboxFor, notesFor } from "@/lib/queries";
+import { ROLES, sopStep } from "@/lib/sop";
 import styles from "./inbox.module.css";
 
 const relative = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
 
 // Whole days is the right resolution here: nothing in this protocol is due by
 // the hour, and "in 6 days" reads faster than a date.
-function whenDue(date: Date) {
-  return relative.format(Math.round((date.getTime() - Date.now()) / 86_400_000), "day");
-}
-
-// One section per patient — the question a clinician actually holds in their
-// head is "what does Mrs Jensen still need", not "what is late everywhere".
-// Rows arrive due-first, so insertion order puts the most urgent patient on top.
-function byPatient(rows: { task: Task; episode: Episode }[]) {
-  const groups = new Map<string, { episode: Episode; tasks: Task[] }>();
-  for (const { task, episode } of rows) {
-    const group = groups.get(episode.id) ?? { episode, tasks: [] };
-    group.tasks.push(task);
-    groups.set(episode.id, group);
-  }
-  return [...groups.values()];
+function when(iso: string) {
+  return relative.format(Math.round((new Date(iso).getTime() - Date.now()) / 86_400_000), "day");
 }
 
 export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
-  const { role } = await searchParams;
-  const current = (typeof role === "string" && role in ROLES ? role : "MunicipalNursing") as Role;
+  const { clinician } = await searchParams;
+  const people = await clinicians();
+  const current =
+    people.find((p) => p.id === clinician) ?? people.find((p) => p.role === "GP") ?? people[0];
 
-  const [rows, counts] = await Promise.all([getInbox(current), getRoleCounts()]);
-  const open = rows.filter((row) => row.task.status !== "done");
-  const overdue = open.filter((row) => isOverdue(row.task)).length;
-  const threads = await getUpdatesFor(open.map((row) => row.task.id));
+  if (!current) {
+    return (
+      <Shell rail={<Rail current="" />}>
+        <Text as="p" size="2" color="gray">
+          No clinicians in the graph yet. Run the seed.
+        </Text>
+      </Shell>
+    );
+  }
+
+  const handoffs = await inboxFor(current.id);
+  const open = handoffs.flatMap((h) => h.tasks.filter((t) => t.status !== "done"));
+  const overdue = open.filter(isOverdue).length;
+  const threads = await notesFor(open.map((t) => t.id));
 
   return (
-    <Shell
-      rail={
-        <div className={styles.railGroup}>
-          <Text size="1" weight="medium" className={styles.railLabel}>
-            Inboxes
-          </Text>
-          {Object.entries(ROLES).map(([value, { long }]) => (
-            <Link
-              key={value}
-              href={`/inbox?role=${value}`}
-              className={styles.railItem}
-              aria-current={value === current ? "page" : undefined}
-            >
-              <Text size="2">{long}</Text>
-              <Text size="1" className={styles.railCount}>
-                {counts.get(value as Role) ?? "–"}
-              </Text>
-            </Link>
-          ))}
-        </div>
-      }
-    >
+    <Shell rail={<Rail current={current.id} />}>
       <header className={styles.head}>
-          <Heading as="h1" size="4" weight="medium">
-            {ROLES[current].long}
-          </Heading>
-          <Text size="2" color={overdue > 0 ? "red" : "gray"}>
-            {overdue > 0 ? `${overdue} overdue` : `${open.length} open`}
-          </Text>
-        </header>
+        <Heading as="h1" size="4" weight="medium">
+          {current.name}
+        </Heading>
+        <Text size="2" color={overdue > 0 ? "red" : "gray"}>
+          {overdue > 0 ? `${overdue} overdue` : `${open.length} open`}
+        </Text>
+      </header>
 
-        {open.length === 0 ? (
-          <Text as="p" size="2" color="gray" className={styles.empty}>
-            Nothing outstanding. New work arrives here once a discharge is reviewed.
-          </Text>
-        ) : (
-          byPatient(open).map(({ episode, tasks }) => (
-            <section key={episode.id} className={styles.group}>
-              <div className={styles.groupHead}>
-                <Text size="2" weight="medium">
-                  {episode.patientName}
-                </Text>
+      {handoffs.length === 0 ? (
+        <Text as="p" size="2" color="gray" className={styles.empty}>
+          Nothing handed over. Work arrives here when someone sends a handoff.
+        </Text>
+      ) : (
+        handoffs.map(({ handoff, patient, from, tasks }) => (
+          <section key={handoff.id} className={styles.group}>
+            <div className={styles.groupHead}>
+              <Text size="2" weight="medium">
+                {patient.name}
+              </Text>
+              <Text size="1" color="gray">
+                from {from.name} · {when(handoff.at)}
+              </Text>
+              <span className={styles.spacer} />
+              {handoff.accepted ? (
                 <Text size="1" color="gray">
-                  {episode.title}
+                  Picked up
                 </Text>
-              </div>
+              ) : (
+                <AcceptHandoff handoffId={handoff.id} patientName={patient.name} />
+              )}
+            </div>
 
-              <ol className={styles.rows}>
-                {tasks.map((task) => (
+            {/* The four parts, always visible — this is what was handed over,
+                and reading it is the whole job. */}
+            <dl className={styles.sbar}>
+              {SBAR_PARTS.map(({ key, label }) => (
+                <div key={key} className={styles.sbarPart}>
+                  <dt>
+                    <Text size="1" weight="medium" className={styles.sbarLabel}>
+                      {label}
+                    </Text>
+                  </dt>
+                  <dd>
+                    <Text as="p" size="2">
+                      {handoff[key] || <span className={styles.missing}>Nothing written</span>}
+                    </Text>
+                  </dd>
+                </div>
+              ))}
+            </dl>
+
+            <ol className={styles.rows}>
+              {tasks
+                .filter((task) => task.status !== "done")
+                .map((task) => (
                   <li key={task.id}>
                     <details className={styles.row}>
                       <summary className={styles.summary}>
@@ -102,20 +111,20 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
                           size="1"
                           className={`${styles.due} ${isOverdue(task) ? styles.late : ""}`}
                         >
-                          {whenDue(task.dueAt)}
+                          {when(task.dueAt)}
                         </Text>
                       </summary>
 
                       <div className={styles.body}>
                         {isGap(task) ? (
                           <Text as="p" size="2" color="gray" className={styles.note}>
-                            Never mentioned in the discharge conversation. The protocol adds
-                            it for {episode.title.toLowerCase()}.
+                            Never mentioned in the discharge conversation. The protocol adds it
+                            for {patient.name}.
                           </Text>
                         ) : (
                           <blockquote className={styles.quote}>
                             <Text size="1" color="gray" className={styles.quoteLabel}>
-                              From the discharge conversation
+                              Because of
                             </Text>
                             <Text as="p" size="2">
                               {task.evidence}
@@ -128,14 +137,14 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
                             Comments
                           </Text>
 
-                          {threads.get(task.id)?.map((update) => (
-                            <div key={update.id} className={styles.update}>
+                          {threads.get(task.id)?.map((note) => (
+                            <div key={note.id} className={styles.update}>
                               <Text size="1" color="gray">
-                                {ROLES[update.authorRole].long} · {whenDue(update.createdAt)}
-                                {update.kind !== "typed" && ` · ${update.kind}`}
+                                {ROLES[note.author]?.long ?? note.author} · {when(note.at)}
+                                {note.kind !== "typed" && ` · ${note.kind}`}
                               </Text>
                               <Text as="p" size="2">
-                                {update.text}
+                                {note.text}
                               </Text>
                             </div>
                           ))}
@@ -144,28 +153,25 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
                             <TaskComposer
                               taskId={task.id}
                               taskTitle={task.title}
-                              authorRole={current}
+                              authorRole={current.role}
                             />
                           </div>
                         </section>
 
-                        {/* The task itself, not its thread — so it sits outside the
-                            comments panel, and closing it is checked against the
-                            protocol rather than taken on trust. */}
                         <CompleteTask
                           taskId={task.id}
                           taskTitle={task.title}
-                          criteria={sopStep(task.sopStepId)?.closes ?? []}
+                          criteria={sopStep(task.stepId)?.closes ?? []}
                           closure={task.closure}
                         />
                       </div>
                     </details>
                   </li>
                 ))}
-              </ol>
-            </section>
-          ))
-        )}
+            </ol>
+          </section>
+        ))
+      )}
     </Shell>
   );
 }
