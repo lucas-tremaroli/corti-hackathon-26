@@ -1,3 +1,4 @@
+import neo4j from "neo4j-driver";
 import { rows } from "./graph";
 import {
   type Clinician,
@@ -76,20 +77,59 @@ export async function openCounts() {
   return new Map(found.map((r) => [r.id, Number(r.open)]));
 }
 
-// The query the product exists for: a fact said in a conversation that reached
-// no task and no handoff. The dizziness that never got to the GP. Exported
-// because the graph screen puts it on the wall — it is the argument.
-// A draft carries nothing — nobody has read it. Only a handoff that was
-// actually sent counts as having passed the fact on.
+/**
+ * The predicate the product exists for: a fact said in a conversation that
+ * reached no task and no handoff. The dizziness that never got to the GP.
+ *
+ * A draft carries nothing — nobody has read it. Only a handoff that was actually
+ * sent counts as having passed the fact on.
+ *
+ * Takes the Cypher variable to bind against, because the list and the graph
+ * reach a fact under different names. One source of truth: if these two ever
+ * disagree, the picture and the list underneath it disagree.
+ */
+export const unclaimed = (v: string) =>
+  `NOT (${v})<-[:BECAUSE_OF]-(:Task) AND NOT (${v})<-[:CARRIES]-(:Handoff {sent: true})`;
+
+// Exported because the graph screen puts it on the wall — it is the argument.
 export const ORPHAN_FACTS = `
 MATCH (f:Fact)-[:SAID_IN]->(c:Conversation)-[:ABOUT]->(p:Patient)
-WHERE NOT (f)<-[:BECAUSE_OF]-(:Task) AND NOT (f)<-[:CARRIES]-(:Handoff {sent: true})
+WHERE ${unclaimed("f")}
 RETURN properties(p) AS patient, properties(f) AS fact, c.title AS conversation
 ORDER BY p.name, f.text
 `;
 
 export const orphanFacts = () =>
   rows<{ patient: Patient; fact: Fact; conversation: string }>(ORPHAN_FACTS);
+
+/** Every node and every relationship, in one round trip, for the graph view. */
+export type GraphRow = {
+  id: string;
+  kind: string;
+  props: Record<string, unknown>;
+  unclaimed: boolean;
+  out: { to: string; type: string }[];
+};
+
+/**
+ * Every node type carries an `id` property, which is what makes one sweep
+ * possible. collect() drops the nulls an OPTIONAL MATCH leaves behind, so a fact
+ * nothing came of arrives here with an empty `out` — the absence is the data.
+ *
+ * ORDER BY is not cosmetic: d3 seeds its initial placement from node index, so a
+ * stable order is what makes the layout the same picture on every load.
+ */
+export const graphShape = (limit = 300) =>
+  rows<GraphRow>(
+    `MATCH (n) WHERE n.id IS NOT NULL
+     OPTIONAL MATCH (n)-[r]->(m) WHERE m.id IS NOT NULL
+     WITH n, collect(CASE WHEN m IS NULL THEN null ELSE {to: m.id, type: type(r)} END) AS out
+     RETURN n.id AS id, labels(n)[0] AS kind, properties(n) AS props, out,
+            (n:Fact AND ${unclaimed("n")}) AS unclaimed
+     ORDER BY kind, id
+     LIMIT $limit`,
+    { limit: neo4j.int(limit) },
+  );
 
 /** The latest conversation and everything that came out of it. */
 export async function latestConversation() {

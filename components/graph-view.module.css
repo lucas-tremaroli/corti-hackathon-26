@@ -1,0 +1,307 @@
+/* The key beside the picture it explains; the selected node underneath, across
+   the full width, where the unclaimed list used to be. Properties are prose and
+   want the room. */
+.wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 13rem;
+  grid-template-areas:
+    "canvas legend"
+    "detail detail";
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.canvas {
+  grid-area: canvas;
+  position: relative;
+  border: 1px solid var(--gray-5);
+  border-radius: var(--radius-4);
+  background: var(--color-panel-solid);
+  overflow: hidden;
+}
+
+/* pan-y, not none: the browser keeps vertical scrolling, so a touch that lands
+   on the canvas can still scroll the page to the list underneath. Sideways drags
+   still reach us for panning. */
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: pan-y;
+  cursor: grab;
+}
+
+.svg:active {
+  cursor: grabbing;
+}
+
+.controls {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  display: flex;
+  gap: 0.375rem;
+}
+
+/* ---- edges ---- */
+
+.line {
+  stroke: var(--gray-7);
+  stroke-width: 1.25;
+  fill: none;
+}
+
+.arrow {
+  fill: var(--gray-7);
+}
+
+.edge[data-adjacent="true"] .line,
+.edge[data-adjacent="true"] .arrow {
+  stroke: var(--gray-11);
+  fill: var(--gray-11);
+}
+
+.edge[data-adjacent="true"] .line {
+  stroke-width: 1.75;
+}
+
+/* Relationship names are the graph's own vocabulary, so they are set in the
+   mono face every other machine-written token on this page uses. */
+.relLabel {
+  font-family: var(--code-font-family);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  fill: var(--gray-11);
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: var(--color-panel-solid);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+/* ---- nodes ---- */
+
+/* A node is the one place a touch drag means "move this", not "scroll the page". */
+.node {
+  cursor: pointer;
+  touch-action: none;
+}
+
+.dot {
+  fill: var(--gray-4);
+  stroke: var(--gray-9);
+  stroke-width: 1.5;
+}
+
+.caption {
+  font-size: 10px;
+  fill: var(--gray-11);
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: var(--color-panel-solid);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+/* A colour per label, the way Neo4j Browser reads. Scoped to this one
+   visualization on purpose: the rest of the app is grey, and red means overdue
+   and only that — which is why an unclaimed fact below is drawn hollow, not red.
+   Every value is a Radix scale that already ships in the theme. */
+.node[data-kind="Patient"] .dot,
+.swatch[data-kind="Patient"] {
+  fill: var(--violet-4);
+  background: var(--violet-4);
+  stroke: var(--violet-9);
+  border-color: var(--violet-9);
+}
+
+.node[data-kind="Clinician"] .dot,
+.swatch[data-kind="Clinician"] {
+  fill: var(--blue-4);
+  background: var(--blue-4);
+  stroke: var(--blue-9);
+  border-color: var(--blue-9);
+}
+
+.node[data-kind="Conversation"] .dot,
+.swatch[data-kind="Conversation"] {
+  fill: var(--cyan-4);
+  background: var(--cyan-4);
+  stroke: var(--cyan-9);
+  border-color: var(--cyan-9);
+}
+
+.node[data-kind="Handoff"] .dot,
+.swatch[data-kind="Handoff"] {
+  fill: var(--plum-4);
+  background: var(--plum-4);
+  stroke: var(--plum-9);
+  border-color: var(--plum-9);
+}
+
+.node[data-kind="Task"] .dot,
+.swatch[data-kind="Task"] {
+  fill: var(--grass-4);
+  background: var(--grass-4);
+  stroke: var(--grass-9);
+  border-color: var(--grass-9);
+}
+
+.node[data-kind="Fact"] .dot,
+.swatch[data-kind="Fact"] {
+  fill: var(--amber-4);
+  background: var(--amber-4);
+  stroke: var(--amber-9);
+  border-color: var(--amber-9);
+}
+
+/* Said, and nothing came of it. Hollow reads the same here as the gutter mark on
+   a task row: nobody carried this. The dash is what you see across the canvas
+   before you have read a single caption. */
+.node[data-unclaimed="true"] .dot,
+.swatch[data-unclaimed="true"] {
+  fill: none;
+  background: none;
+  stroke-dasharray: 3 2.5;
+}
+
+.node[data-selected="true"] .dot {
+  stroke-width: 3;
+}
+
+.node[data-selected="true"] .caption {
+  fill: var(--gray-12);
+  font-weight: 500;
+}
+
+.node:focus {
+  outline: none;
+}
+
+.node:focus-visible .dot {
+  outline: 2px solid var(--gray-8);
+  outline-offset: 3px;
+  border-radius: 50%;
+}
+
+/* Pointing at something is a question about one node. Everything that cannot
+   answer it gets out of the way. */
+.node[data-dimmed="true"],
+.edge[data-dimmed="true"] {
+  opacity: 0.15;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .node,
+  .edge {
+    transition: opacity 120ms ease;
+  }
+}
+
+/* ---- panel ---- */
+
+.key,
+.detail {
+  min-width: 0;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--gray-5);
+  border-radius: var(--radius-4);
+  background: var(--color-panel-solid);
+}
+
+.key {
+  grid-area: legend;
+  align-self: start;
+}
+
+/* A floor on the height so selecting a node and clearing it does not jog the
+   page up and down under the cursor. */
+.detail {
+  grid-area: detail;
+  min-height: 7.5rem;
+}
+
+.panelLabel {
+  display: block;
+  padding-bottom: 0.375rem;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid var(--gray-4);
+  color: var(--gray-10);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Full width now, so properties sit in columns rather than one long list. An id
+   and a status do not each need 60rem to themselves. */
+.props {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 0.875rem 1.5rem;
+  align-items: start;
+}
+
+.prop {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.propKey {
+  font-family: var(--code-font-family);
+  color: var(--gray-10);
+}
+
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  list-style: none;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.swatch {
+  flex: none;
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid var(--gray-9);
+  border-radius: 50%;
+  background: var(--gray-4);
+}
+
+/* No rule of its own: the label above already draws one, and the two together
+   fenced off an empty strip. Just prose, held to the measure the rest of the app
+   holds prose to. */
+.hint {
+  max-width: 42rem;
+}
+
+/* Narrow: the legend has no column to sit in, so it drops under the canvas and
+   lies down into a row — vertical space is the scarce thing here, not width. */
+@media (max-width: 60rem) {
+  .wrap {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "canvas"
+      "legend"
+      "detail";
+  }
+
+  .legend {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+  }
+
+  .detail {
+    min-height: 0;
+  }
+}
