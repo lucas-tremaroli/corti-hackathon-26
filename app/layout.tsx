@@ -25,8 +25,16 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${sans.variable} ${mono.variable}`}>
       <body>
-        {/* Grey accent on purpose. Red is spent on one thing only — see globals.css. */}
-        <Theme appearance="light" accentColor="gray" grayColor="slate" radius="small">
+        {/* Grey accent on purpose. Red is spent on one thing only — see globals.css.
+            Solid panels, not translucent: the page is already near-white, so a
+            translucent card lands on top of it invisibly. */}
+        <Theme
+          appearance="light"
+          accentColor="gray"
+          grayColor="slate"
+          radius="small"
+          panelBackground="solid"
+        >
           {children}
         </Theme>
       </body>

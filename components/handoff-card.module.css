@@ -1,0 +1,133 @@
+/* Radix Card supplies the panel, border, radius and lift. Everything here is
+   what goes inside it — plus the one rule about how it sits in the grid. */
+
+/* Open, it stops being a tile: the four parts are prose, and prose read across a
+   22rem column is worse than no card at all. */
+.card[open] {
+  grid-column: 1 / -1;
+}
+
+/* The card is what the SBAR inside it measures itself against — how much room it
+   was given, not who rendered it. The console draws the same four parts inside a
+   42rem feed and needs them stacked. */
+.card {
+  container-type: inline-size;
+}
+
+.head {
+  display: grid;
+  grid-template-columns: 0.5rem minmax(0, 1fr) auto;
+  align-items: baseline;
+  column-gap: var(--space-2);
+  row-gap: 0.125rem;
+  cursor: pointer;
+  list-style: none;
+}
+
+.head::-webkit-details-marker {
+  display: none;
+}
+
+.head:focus-visible {
+  outline: 2px solid var(--gray-8);
+  outline-offset: 2px;
+  border-radius: var(--radius-2);
+}
+
+/* Same border-drawn geometry as the rail toggle: a chevron built from two sides
+   of a rotated square, pointing at what it opens. */
+.head::before {
+  content: "";
+  grid-column: 1;
+  grid-row: 1 / -1;
+  align-self: center;
+  width: 6px;
+  height: 6px;
+  border: 1.25px solid var(--gray-9);
+  border-left: none;
+  border-bottom: none;
+  transform: rotate(45deg);
+}
+
+.card[open] .head::before {
+  transform: rotate(135deg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .head::before {
+    transition: transform 120ms ease;
+  }
+}
+
+/* A handoff is about a patient, and that is the first thing you need. Held at
+   one size open or shut: opening a card is you reading it, not the patient
+   becoming more important. */
+.patient {
+  grid-column: 2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Mono because it is provenance, like every other time and author on the page. */
+.routing {
+  grid-column: 2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--code-font-family);
+  color: var(--gray-10);
+}
+
+/* Not red — red is spent on overdue work, and a handoff nobody has read yet is
+   not late. Weight carries it instead. */
+.waiting {
+  grid-column: 3;
+  grid-row: 1;
+  font-weight: 500;
+  color: var(--gray-12);
+}
+
+.done {
+  grid-column: 3;
+  grid-row: 1;
+  color: var(--gray-10);
+}
+
+/* Every gap inside the card is the card's own padding — Radix sets that from
+   --space-4 at size 2, so the rule sits the same distance from the head as the
+   head sits from the frame, and nothing has to be re-tuned if the theme rescales. */
+.body {
+  max-width: 46rem;
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--gray-4);
+}
+
+/* Wide enough for two columns of parts, so the measure comes from the columns
+   and the body can have the whole card. */
+@container (min-width: 56rem) {
+  .body {
+    max-width: none;
+  }
+}
+
+.foot {
+  display: flex;
+  align-items: center;
+  margin-top: var(--space-4);
+}
+
+@media (max-width: 40rem) {
+  .head {
+    grid-template-columns: 0.5rem minmax(0, 1fr);
+  }
+
+  .waiting,
+  .done {
+    grid-column: 2;
+    grid-row: auto;
+  }
+}

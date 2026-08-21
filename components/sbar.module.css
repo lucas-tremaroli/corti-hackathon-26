@@ -1,0 +1,46 @@
+/* A step below the gaps between the card's own sections, so the four parts read
+   as one block rather than four. 14px against a 16px frame was a near miss —
+   close enough to look like a mistake instead of a distinction. */
+.sbar {
+  display: grid;
+  gap: var(--space-3);
+}
+
+/* Given the room, four parts pair off two-up rather than stretching to a line
+   nobody can track back from. Reading order is unchanged: S B across, then A R.
+   Keyed to the container, so this only fires where there is width to spend —
+   the console's 42rem feed keeps them stacked. */
+@container (min-width: 56rem) {
+  .sbar {
+    grid-template-columns: 1fr 1fr;
+    column-gap: var(--space-6);
+    row-gap: var(--space-5);
+  }
+}
+
+/* 9rem, not 8: RECOMMENDATION in caps with tracking does not fit 8. */
+.part {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr);
+  gap: var(--space-4);
+  align-items: baseline;
+}
+
+.label {
+  color: var(--gray-10);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Not red: an unwritten part is incomplete, not late. */
+.missing {
+  color: var(--gray-9);
+  font-style: italic;
+}
+
+@media (max-width: 40rem) {
+  .part {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.25rem;
+  }
+}

@@ -11,11 +11,11 @@ import {
   readIntent,
   readSteps,
 } from "@/app/actions";
-import type { Request, Sbar } from "@/lib/handoff";
-import { SBAR_PARTS } from "@/lib/handoff";
+import type { Request, Sbar as SbarValue } from "@/lib/handoff";
 import type { Clinician, Patient } from "@/lib/model";
 import type { StepVerdict } from "@/lib/sop";
 import { Dictation } from "./dictation";
+import { Sbar } from "./sbar";
 import { toast } from "./toast";
 import styles from "./handoff-console.module.css";
 
@@ -35,7 +35,7 @@ type Draft = {
   codes: string[];
   verdicts: StepVerdict[];
   requests: Request[];
-  sbar: Sbar;
+  sbar: SbarValue;
   recipientId: string | null;
 };
 
@@ -320,25 +320,8 @@ export function HandoffConsole({
           ))}
 
           {draft && (
-            <li className={styles.entry}>
-              <dl className={styles.sbar}>
-                {SBAR_PARTS.map(({ key, label }) => (
-                  <div key={key} className={styles.part}>
-                    <dt>
-                      <Text size="1" weight="medium" className={styles.partLabel}>
-                        {label}
-                      </Text>
-                    </dt>
-                    <dd>
-                      <Text as="p" size="2">
-                        {draft.sbar[key] || (
-                          <span className={styles.missing}>Nothing drafted</span>
-                        )}
-                      </Text>
-                    </dd>
-                  </div>
-                ))}
-              </dl>
+            <li className={styles.draft}>
+              <Sbar sbar={draft.sbar} missing="Nothing drafted" />
             </li>
           )}
 

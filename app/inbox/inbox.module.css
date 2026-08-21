@@ -3,77 +3,112 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 1rem;
+  min-height: 1.75rem;
   padding-bottom: 1.25rem;
   border-bottom: 1px solid var(--gray-4);
 }
 
-.group {
-  margin-top: 2rem;
+/* Two sections, one rhythm. Stated once here so the spacing inside them never
+   has to argue with the spacing between them. */
+.section {
+  margin-top: 3.5rem;
 }
 
-.groupHead {
-  position: sticky;
-  top: 0;
-  z-index: 1;
+.section:first-of-type {
+  margin-top: 2.5rem;
+}
+
+.sectionHead {
   display: flex;
   align-items: baseline;
-  gap: 0.5rem;
-  padding: 0.5rem 0;
-  background: var(--color-background);
-  border-bottom: 1px solid var(--gray-4);
-}
-
-.spacer {
-  flex: 1;
-}
-
-/* What was actually handed over. Four parts, always visible — a clinician
-   reading their inbox is reading this, not the rows underneath it. */
-.sbar {
-  display: flex;
-  flex-direction: column;
   gap: 0.625rem;
-  max-width: 42rem;
-  padding: 1rem 0 1.25rem;
-}
-
-.sbarPart {
-  display: grid;
-  grid-template-columns: 8rem minmax(0, 1fr);
-  gap: 1rem;
-  align-items: baseline;
-}
-
-.sbarLabel {
-  color: var(--gray-10);
-}
-
-/* Not red: an unwritten part is incomplete, not late. */
-.missing {
-  color: var(--gray-9);
-  font-style: italic;
-}
-
-.rows {
+  padding-bottom: 0.375rem;
+  border-bottom: 1px solid var(--gray-4);
+  cursor: pointer;
   list-style: none;
 }
 
-@media (max-width: 40rem) {
-  .sbarPart {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0.25rem;
+.sectionHead::-webkit-details-marker {
+  display: none;
+}
+
+.sectionHead:focus-visible {
+  outline: 2px solid var(--gray-8);
+  outline-offset: 2px;
+}
+
+/* The same chevron the handoff cards use, at the same size — one gesture on this
+   page, whatever it is folding. */
+.sectionHead::before {
+  content: "";
+  align-self: center;
+  width: 6px;
+  height: 6px;
+  border: 1.25px solid var(--gray-9);
+  border-left: none;
+  border-bottom: none;
+  transform: rotate(45deg);
+}
+
+.section[open] > .sectionHead::before {
+  transform: rotate(135deg);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sectionHead::before {
+    transition: transform 120ms ease;
   }
+}
+
+/* The same hairline-and-caps every other label on this page uses. */
+.sectionLabel {
+  color: var(--gray-10);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Pushed to the far edge, so both counts line up down the right of the page. */
+.count {
+  margin-left: auto;
+  font-family: var(--code-font-family);
+  font-variant-numeric: tabular-nums;
+  color: var(--gray-10);
+}
+
+.emptyLine {
+  margin-top: 1rem;
+  max-width: 42rem;
+}
+
+/* The cards themselves are components/handoff-card. This only lays them out:
+   tiles while closed, and an open one spans the whole row — the card sets that
+   itself, since it is the one that knows it is open. */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+  align-items: start;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+/* ---- tasks ---- */
+
+.rows {
+  list-style: none;
 }
 
 .row {
   border-bottom: 1px solid var(--gray-3);
 }
 
+/* A fixed column for the patient, so the names line up down the list and the eye
+   groups them without any grouping markup. */
 .summary {
-  display: flex;
+  display: grid;
+  grid-template-columns: 9px 10rem minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.5rem 0.5rem 0.5rem 0;
+  padding: 0.5rem;
   cursor: pointer;
   list-style: none;
 }
@@ -94,10 +129,8 @@
 /* The gutter mark is provenance, not status: hollow means nobody said it out
    loud. Colour is reserved for time, so this stays grey in every state. */
 .mark {
-  flex: none;
   width: 9px;
   height: 9px;
-  margin-left: 0.5rem;
   border: 1.5px solid var(--gray-8);
   border-radius: 50%;
   background: var(--gray-8);
@@ -107,8 +140,15 @@
   background: transparent;
 }
 
+.who {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--gray-11);
+}
+
 .title {
-  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -116,7 +156,6 @@
 }
 
 .due {
-  flex: none;
   font-family: var(--code-font-family);
   font-variant-numeric: tabular-nums;
   color: var(--gray-10);
@@ -179,9 +218,28 @@
   padding-top: 0.375rem;
 }
 
-.empty {
-  margin-top: 2.5rem;
-}
+@media (max-width: 40rem) {
+  /* No room for a patient column: the name drops under the title it belongs to. */
+  .summary {
+    grid-template-columns: 9px minmax(0, 1fr) auto;
+    row-gap: 0.125rem;
+  }
 
-/* The composer sits inline with Mark done while collapsed, and wraps it onto its
-   own line once opened. */
+  .title {
+    grid-column: 2;
+  }
+
+  .who {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .due {
+    grid-column: 3;
+    grid-row: 1;
+  }
+
+  .body {
+    padding-left: 1.25rem;
+  }
+}

@@ -130,28 +130,11 @@
 
 /* ---- the drafted handoff ---- */
 
-.sbar {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  padding: 1rem 0 0;
+/* The four parts are components/sbar, shared with the inbox. This is only the
+   rule that separates them from the feed above. */
+.draft {
+  padding-top: 1rem;
   border-top: 1px solid var(--gray-4);
-}
-
-.part {
-  display: grid;
-  grid-template-columns: 8rem minmax(0, 1fr);
-  gap: 1rem;
-  align-items: baseline;
-}
-
-.partLabel {
-  color: var(--gray-10);
-}
-
-.missing {
-  color: var(--gray-9);
-  font-style: italic;
 }
 
 .actions {
@@ -166,11 +149,6 @@
 }
 
 @media (max-width: 40rem) {
-  .part {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0.25rem;
-  }
-
   .actions {
     flex-wrap: wrap;
   }
