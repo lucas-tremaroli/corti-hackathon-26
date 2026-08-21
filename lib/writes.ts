@@ -16,11 +16,15 @@ export async function saveConversation(input: {
   patientName: string;
   title: string;
   transcript: string;
+  // The Corti recording this came out of, when it was spoken rather than read
+  // off disk. Null keeps the property present so the shape never varies.
+  interactionId?: string;
   facts: { text: string; group?: string }[];
 }) {
   await rows(
     `MERGE (p:Patient {id: $patientId}) SET p.name = $patientName
-     CREATE (c:Conversation {id: $id, title: $title, transcript: $transcript, at: $at})
+     CREATE (c:Conversation {id: $id, title: $title, transcript: $transcript, at: $at,
+                             interactionId: $interactionId})
      CREATE (c)-[:ABOUT]->(p)
      WITH c
      UNWIND $facts AS row
@@ -29,6 +33,7 @@ export async function saveConversation(input: {
     {
       ...input,
       at: now(),
+      interactionId: input.interactionId ?? null,
       facts: input.facts.map((f, index) => ({
         id: factId(input.id, index),
         text: f.text,
@@ -82,6 +87,36 @@ export async function saveTasks(
           factId: index >= 0 ? factId(conversationId, index) : null,
         };
       }),
+    },
+  );
+}
+
+/**
+ * Tasks somebody asked for out loud, as opposed to ones the protocol expects.
+ * No stepId, because there are no closing criteria to check them against — a
+ * spoken instruction is its own justification, and no BECAUSE_OF edge with it.
+ */
+export async function saveRequestedTasks(
+  patientId: string,
+  ownerId: string,
+  requests: { title: string; dueInDays: number }[],
+) {
+  if (requests.length === 0) return;
+  await rows(
+    `MATCH (p:Patient {id: $patientId}), (owner:Clinician {id: $ownerId})
+     UNWIND $tasks AS row
+     CREATE (t:Task {id: row.id, title: row.title, dueAt: row.dueAt, status: 'open',
+                     stepId: null, evidence: row.title, closure: null})
+     CREATE (t)-[:OWNED_BY]->(owner)
+     CREATE (t)-[:FOR]->(p)`,
+    {
+      patientId,
+      ownerId,
+      tasks: requests.map((request) => ({
+        id: crypto.randomUUID(),
+        title: request.title,
+        dueAt: addDays(request.dueInDays),
+      })),
     },
   );
 }

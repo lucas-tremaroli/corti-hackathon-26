@@ -2,7 +2,8 @@ import assert from "node:assert";
 import { readFileSync } from "node:fs";
 import { extractFacts, predictCodes } from "../lib/corti";
 import { close, rows } from "../lib/graph";
-import { draftSbar, missingParts } from "../lib/handoff";
+import { draftSbar, missingParts, readHandoffIntent } from "../lib/handoff";
+import type { Clinician } from "../lib/model";
 import { ORPHAN_FACTS } from "../lib/queries";
 import { checkClosure, classifySteps, NEW_AF_DISCHARGE, sopForCodes, sopStep } from "../lib/sop";
 import { saveConversation, saveTasks } from "../lib/writes";
@@ -53,6 +54,31 @@ for (const v of verdicts.filter((v) => v.status === "covered")) {
 assert.ok(
   verdicts.filter((v) => v.status === "gap").every((v) => v.factIndex === -1),
   "a gap cannot point at a fact",
+);
+
+// Who the handoff is addressed to, read out of the words. The console prefills
+// the recipient from this, so a wrong answer here sends a handoff to the wrong
+// clinician — the one piece of model judgement on the critical path.
+const ROSTER: Clinician[] = [
+  { id: "cardiology", name: "Dr Michael Chen", role: "Cardiology", org: "Springfield General Hospital" },
+  { id: "gp", name: "Dr Elena Vasquez", role: "GP", org: "Springfield Family Medicine" },
+];
+const intent = await readHandoffIntent(transcript, ROSTER);
+console.log(`recipient: ${intent.recipientId ?? "none"} — "${intent.quote}"`);
+for (const r of intent.requests) console.log(`  asks for: ${r.title} (${r.dueInDays}d)`);
+assert.equal(
+  intent.recipientId,
+  "gp",
+  'the discharge says "I\'ve written to your GP" — it is handed to primary care',
+);
+// A clinician who is not on the roster is worse than no clinician at all.
+assert.ok(
+  intent.recipientId === null || ROSTER.some((c) => c.id === intent.recipientId),
+  "the recipient must be an id from the roster, never an invented one",
+);
+assert.ok(
+  intent.requests.every((r) => r.title !== "" && r.dueInDays > 0),
+  "every request needs something to do and a day to do it by",
 );
 
 // The other half of the loop: a task closes on what the notes say was done, not

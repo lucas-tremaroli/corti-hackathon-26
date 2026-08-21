@@ -11,7 +11,9 @@ export function Ambient({
   onFacts,
 }: {
   interactionId: string;
-  onTranscript: (text: string) => void;
+  // speakerId is -1 when diarization is off. Callers that only want the words
+  // can ignore it; the ones building a two-voice transcript cannot.
+  onTranscript: (text: string, speakerId: number) => void;
   onFacts?: (facts: Corti.StreamFact[]) => void;
 }) {
   const ref = useRef<CortiAmbient>(null);
@@ -34,13 +36,16 @@ export function Ambient({
     };
     const transcript = (event: Event) => {
       const { data } = (event as CustomEvent<Corti.StreamTranscriptMessage>).detail;
-      // Multi-speaker, so a message can carry several segments. Interim ones are
-      // replaced as the stream firms up — only finals are worth keeping.
-      const text = data
-        .filter((s) => s.final)
-        .map((s) => s.transcript)
-        .join(" ");
-      if (text) callbacks.current.onTranscript(text);
+      // Multi-speaker, so a message can carry several segments, and they can be
+      // different people. Handing them over one at a time keeps the diarization
+      // Corti did for us — flattening them into one string throws away who spoke,
+      // and who spoke is what makes a deflected question legible as one.
+      // Interim segments are replaced as the stream firms up; only finals count.
+      for (const segment of data) {
+        if (segment.final && segment.transcript) {
+          callbacks.current.onTranscript(segment.transcript, segment.speakerId);
+        }
+      }
     };
     const facts = (event: Event) => {
       const { fact } = (event as CustomEvent<Corti.StreamFactsMessage>).detail;

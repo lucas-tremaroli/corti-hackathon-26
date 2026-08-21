@@ -24,6 +24,18 @@ export const clinicians = () =>
     RETURN c.id AS id, c.name AS name, c.role AS role, c.org AS org
     ORDER BY c.name`);
 
+/** Everyone on the books, for choosing whose conversation this is. */
+export const patients = () =>
+  rows<Patient>("MATCH (p:Patient) RETURN p.id AS id, p.name AS name ORDER BY p.name");
+
+export async function patientById(id: string) {
+  const [found] = await rows<Patient>(
+    "MATCH (p:Patient {id: $id}) RETURN p.id AS id, p.name AS name",
+    { id },
+  );
+  return found ?? null;
+}
+
 /** The handoffs sent to one clinician, newest first, with what they carry. */
 export const inboxFor = (clinicianId: string) =>
   rows<{ handoff: Handoff; patient: Patient; from: Clinician; facts: Fact[] }>(

@@ -85,12 +85,15 @@ export function TaskComposer({
 
   return (
     <div className={styles.composer}>
+      {/* Read-only on purpose: everything on this record is spoken. If the words
+          came out wrong, clear them and say it again rather than quietly typing
+          over what the microphone actually heard. */}
       <TextArea
         size="2"
         rows={3}
         value={text}
-        onChange={(event) => setText(event.target.value)}
-        placeholder="Say what happened, or dictate it."
+        readOnly
+        placeholder="Say what happened. Nothing is saved until you add it."
       />
 
       <div className={styles.controls}>
@@ -118,6 +121,22 @@ export function TaskComposer({
         )}
 
         <span className={styles.spacer} />
+
+        {/* The only way back from a bad transcription, now that the box cannot
+            be typed into. */}
+        <Button
+          type="button"
+          size="1"
+          variant="ghost"
+          color="gray"
+          disabled={pending || text === ""}
+          onClick={() => {
+            setText("");
+            setKind("typed");
+          }}
+        >
+          Clear
+        </Button>
 
         <Button
           type="button"

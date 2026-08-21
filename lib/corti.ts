@@ -89,8 +89,16 @@ export async function browserCredentials() {
 // inside a demo beat.
 const CHAT_TIMEOUT_MS = 45_000;
 
+// Three goes, with a pause between them. An immediate retry after a 500 asks the
+// same overloaded thing the same question a millisecond later, which is how a
+// transient failure gets mistaken for a permanent one — measured 56s of two
+// back-to-back attempts both returning 500 with an empty body.
+const ATTEMPTS = 3;
+const backoff = (attempt: number) => new Promise((r) => setTimeout(r, attempt * 1500));
+
 export async function chat<T>(prompt: string, attempt = 0): Promise<T> {
   const { tenant, environment } = cfg();
+  const last = attempt >= ATTEMPTS - 1;
   let res: Response;
   try {
     res = await fetch(`https://ai.${environment}.corti.app/v1/chat/completions`, {
@@ -110,15 +118,25 @@ export async function chat<T>(prompt: string, attempt = 0): Promise<T> {
       }),
     });
   } catch (error) {
-    // A timed-out request is worth exactly one more go; a second stall is the
-    // service, not the weather.
-    if (attempt === 0) return chat<T>(prompt, 1);
-    throw new Error(`Corti chat gave up after ${CHAT_TIMEOUT_MS / 1000}s: ${error}`);
+    if (last) throw new Error(`Corti chat gave up after ${CHAT_TIMEOUT_MS / 1000}s: ${error}`);
+    await backoff(attempt + 1);
+    return chat<T>(prompt, attempt + 1);
   }
+
   // This call is the demo. It 500s occasionally and the identical prompt then
-  // succeeds, so one retry rather than a dead board on stage.
-  if (res.status >= 500 && attempt === 0) return chat<T>(prompt, 1);
-  if (!res.ok) throw new Error(`Corti chat ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  // succeeds, so back off and ask again rather than a dead board on stage.
+  if (res.status >= 500 && !last) {
+    await backoff(attempt + 1);
+    return chat<T>(prompt, attempt + 1);
+  }
+  if (!res.ok) {
+    // A 500 from this endpoint usually carries no body at all, so the status
+    // text is the only thing distinguishing it from our own bugs.
+    const body = (await res.text()).slice(0, 300).trim();
+    throw new Error(
+      `Corti text generation failed — ${res.status} ${res.statusText}${body ? `: ${body}` : " (no detail returned)"}`,
+    );
+  }
 
   // A 200 can still carry no answer: content comes back null when the model
   // stops early, and JSON.parse(null) is null, not a throw. Every caller reads
@@ -127,8 +145,9 @@ export async function chat<T>(prompt: string, attempt = 0): Promise<T> {
   const content = choices?.[0]?.message?.content;
   const parsed = typeof content === "string" ? tryParse(content) : null;
   if (parsed) return parsed as T;
-  if (attempt === 0) return chat<T>(prompt, 1);
-  throw new Error(`Corti chat returned no usable JSON: ${String(content).slice(0, 200)}`);
+  if (last) throw new Error(`Corti chat returned no usable JSON: ${String(content).slice(0, 200)}`);
+  await backoff(attempt + 1);
+  return chat<T>(prompt, attempt + 1);
 }
 
 function tryParse(text: string) {
