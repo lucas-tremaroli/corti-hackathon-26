@@ -2,13 +2,18 @@ import { Heading, Text } from "@radix-ui/themes";
 import { AcceptHandoff } from "@/components/accept-handoff";
 import { CompleteTask } from "@/components/complete-task";
 import { Rail } from "@/components/rail";
+import { RailProfile } from "@/components/rail-profile";
 import { Shell } from "@/components/shell";
 import { TaskComposer } from "@/components/task-composer";
 import { SBAR_PARTS } from "@/lib/handoff";
-import { isGap, isOverdue } from "@/lib/model";
-import { clinicians, inboxFor, notesFor } from "@/lib/queries";
+import { isGap, isOverdue, type Handoff, type Patient, type Task } from "@/lib/model";
+import { activeClinician } from "@/lib/profile";
+import { inboxFor, notesFor, tasksOwnedBy } from "@/lib/queries";
 import { ROLES, sopStep } from "@/lib/sop";
 import styles from "./inbox.module.css";
+
+// See app/page.tsx — the graph is read at request time, never prerendered.
+export const dynamic = "force-dynamic";
 
 const relative = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
 
@@ -18,15 +23,44 @@ function when(iso: string) {
   return relative.format(Math.round((new Date(iso).getTime() - Date.now()) / 86_400_000), "day");
 }
 
-export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
-  const { clinician } = await searchParams;
-  const people = await clinicians();
-  const current =
-    people.find((p) => p.id === clinician) ?? people.find((p) => p.role === "GP") ?? people[0];
+type Group = {
+  patient: Patient;
+  handoff: { handoff: Handoff; from: { name: string } } | null;
+  tasks: Task[];
+};
+
+/**
+ * One section per patient, whether the work arrived as a handoff or was simply
+ * assigned. The sending clinician has tasks and no incoming handoff; the
+ * receiving one has both. Same layout either way.
+ */
+function byPatient(
+  handoffs: Awaited<ReturnType<typeof inboxFor>>,
+  owned: Awaited<ReturnType<typeof tasksOwnedBy>>,
+): Group[] {
+  const groups = new Map<string, Group>();
+
+  for (const row of handoffs) {
+    groups.set(row.patient.id, {
+      patient: row.patient,
+      handoff: { handoff: row.handoff, from: row.from },
+      tasks: [],
+    });
+  }
+  for (const { task, patient } of owned) {
+    const group = groups.get(patient.id) ?? { patient, handoff: null, tasks: [] };
+    group.tasks.push(task);
+    groups.set(patient.id, group);
+  }
+  return [...groups.values()];
+}
+
+export default async function InboxPage() {
+  const current = await activeClinician();
 
   if (!current) {
     return (
-      <Shell rail={<Rail current="" />}>
+      <Shell rail={<Rail current="/inbox" />}>
         <Text as="p" size="2" color="gray">
           No clinicians in the graph yet. Run the seed.
         </Text>
@@ -34,140 +68,148 @@ export default async function InboxPage({ searchParams }: PageProps<"/inbox">) {
     );
   }
 
-  const handoffs = await inboxFor(current.id);
-  const open = handoffs.flatMap((h) => h.tasks.filter((t) => t.status !== "done"));
-  const overdue = open.filter(isOverdue).length;
-  const threads = await notesFor(open.map((t) => t.id));
+  const [handoffs, owned] = await Promise.all([inboxFor(current.id), tasksOwnedBy(current.id)]);
+  const groups = byPatient(handoffs, owned);
+  const overdue = owned.filter(({ task }) => isOverdue(task)).length;
+  const threads = await notesFor(owned.map(({ task }) => task.id));
 
   return (
-    <Shell rail={<Rail current={current.id} />}>
+    <Shell
+      rail={<Rail current="/inbox" clinicianId={current.id} />}
+      profile={<RailProfile />}
+    >
       <header className={styles.head}>
         <Heading as="h1" size="4" weight="medium">
-          {current.name}
+          {ROLES[current.role].long}
         </Heading>
         <Text size="2" color={overdue > 0 ? "red" : "gray"}>
-          {overdue > 0 ? `${overdue} overdue` : `${open.length} open`}
+          {overdue > 0 ? `${overdue} overdue` : `${owned.length} open`}
         </Text>
       </header>
 
-      {handoffs.length === 0 ? (
+      {groups.length === 0 ? (
         <Text as="p" size="2" color="gray" className={styles.empty}>
-          Nothing handed over. Work arrives here when someone sends a handoff.
+          Nothing outstanding. Work arrives here when someone hands it to you.
         </Text>
       ) : (
-        handoffs.map(({ handoff, patient, from, tasks }) => (
-          <section key={handoff.id} className={styles.group}>
+        groups.map(({ patient, handoff, tasks }) => (
+          <section key={patient.id} className={styles.group}>
             <div className={styles.groupHead}>
               <Text size="2" weight="medium">
                 {patient.name}
               </Text>
-              <Text size="1" color="gray">
-                from {from.name} · {when(handoff.at)}
-              </Text>
-              <span className={styles.spacer} />
-              {handoff.accepted ? (
+              {handoff && (
                 <Text size="1" color="gray">
-                  Picked up
+                  from {handoff.from.name} · {when(handoff.handoff.at)}
                 </Text>
-              ) : (
-                <AcceptHandoff handoffId={handoff.id} patientName={patient.name} />
               )}
+              <span className={styles.spacer} />
+              {handoff &&
+                (handoff.handoff.accepted ? (
+                  <Text size="1" color="gray">
+                    Picked up
+                  </Text>
+                ) : (
+                  <AcceptHandoff handoffId={handoff.handoff.id} patientName={patient.name} />
+                ))}
             </div>
 
             {/* The four parts, always visible — this is what was handed over,
                 and reading it is the whole job. */}
-            <dl className={styles.sbar}>
-              {SBAR_PARTS.map(({ key, label }) => (
-                <div key={key} className={styles.sbarPart}>
-                  <dt>
-                    <Text size="1" weight="medium" className={styles.sbarLabel}>
-                      {label}
-                    </Text>
-                  </dt>
-                  <dd>
-                    <Text as="p" size="2">
-                      {handoff[key] || <span className={styles.missing}>Nothing written</span>}
-                    </Text>
-                  </dd>
-                </div>
-              ))}
-            </dl>
+            {handoff && (
+              <dl className={styles.sbar}>
+                {SBAR_PARTS.map(({ key, label }) => (
+                  <div key={key} className={styles.sbarPart}>
+                    <dt>
+                      <Text size="1" weight="medium" className={styles.sbarLabel}>
+                        {label}
+                      </Text>
+                    </dt>
+                    <dd>
+                      <Text as="p" size="2">
+                        {handoff.handoff[key] || (
+                          <span className={styles.missing}>Nothing written</span>
+                        )}
+                      </Text>
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            )}
 
             <ol className={styles.rows}>
-              {tasks
-                .filter((task) => task.status !== "done")
-                .map((task) => (
-                  <li key={task.id}>
-                    <details className={styles.row}>
-                      <summary className={styles.summary}>
-                        <span
-                          className={`${styles.mark} ${isGap(task) ? styles.gap : ""}`}
-                          aria-hidden
-                        />
-                        <Text size="2" className={styles.title}>
-                          {task.title}
-                        </Text>
-                        <Text
-                          size="1"
-                          className={`${styles.due} ${isOverdue(task) ? styles.late : ""}`}
-                        >
-                          {when(task.dueAt)}
-                        </Text>
-                      </summary>
+              {tasks.map((task) => (
+                <li key={task.id}>
+                  <details className={styles.row}>
+                    <summary className={styles.summary}>
+                      <span
+                        className={`${styles.mark} ${isGap(task) ? styles.gap : ""}`}
+                        aria-hidden
+                      />
+                      <Text size="2" className={styles.title}>
+                        {task.title}
+                      </Text>
+                      <Text
+                        size="1"
+                        className={`${styles.due} ${isOverdue(task) ? styles.late : ""}`}
+                      >
+                        {when(task.dueAt)}
+                      </Text>
+                    </summary>
 
-                      <div className={styles.body}>
-                        {isGap(task) ? (
-                          <Text as="p" size="2" color="gray" className={styles.note}>
-                            Never mentioned in the discharge conversation. The protocol adds it
-                            for {patient.name}.
+                    <div className={styles.body}>
+                      {isGap(task) ? (
+                        <Text as="p" size="2" color="gray" className={styles.note}>
+                          Never mentioned in the discharge conversation. The protocol adds it
+                          for {patient.name}.
+                        </Text>
+                      ) : (
+                        <blockquote className={styles.quote}>
+                          <Text size="1" color="gray" className={styles.quoteLabel}>
+                            Because of
                           </Text>
-                        ) : (
-                          <blockquote className={styles.quote}>
-                            <Text size="1" color="gray" className={styles.quoteLabel}>
-                              Because of
+                          <Text as="p" size="2">
+                            {task.evidence}
+                          </Text>
+                        </blockquote>
+                      )}
+
+                      <section className={styles.updates}>
+                        <Text size="1" weight="medium" className={styles.updatesLabel}>
+                          Comments
+                        </Text>
+
+                        {threads.get(task.id)?.map((note) => (
+                          <div key={note.id} className={styles.update}>
+                            <Text size="1" color="gray">
+                              {ROLES[note.author]?.long ?? note.author} · {when(note.at)}
+                              {note.kind !== "typed" && ` · ${note.kind}`}
                             </Text>
                             <Text as="p" size="2">
-                              {task.evidence}
+                              {note.text}
                             </Text>
-                          </blockquote>
-                        )}
-
-                        <section className={styles.updates}>
-                          <Text size="1" weight="medium" className={styles.updatesLabel}>
-                            Comments
-                          </Text>
-
-                          {threads.get(task.id)?.map((note) => (
-                            <div key={note.id} className={styles.update}>
-                              <Text size="1" color="gray">
-                                {ROLES[note.author]?.long ?? note.author} · {when(note.at)}
-                                {note.kind !== "typed" && ` · ${note.kind}`}
-                              </Text>
-                              <Text as="p" size="2">
-                                {note.text}
-                              </Text>
-                            </div>
-                          ))}
-
-                          <div className={styles.composerSlot}>
-                            <TaskComposer
-                              taskId={task.id}
-                              taskTitle={task.title}
-                              authorRole={current.role}
-                            />
                           </div>
-                        </section>
+                        ))}
 
-                        <CompleteTask
-                          taskId={task.id}
-                          taskTitle={task.title}
-                          criteria={sopStep(task.stepId)?.closes ?? []}
-                          closure={task.closure}
-                        />
-                      </div>
-                    </details>
-                  </li>
-                ))}
+                        <div className={styles.composerSlot}>
+                          <TaskComposer
+                            taskId={task.id}
+                            taskTitle={task.title}
+                            authorRole={current.role}
+                          />
+                        </div>
+                      </section>
+
+                      <CompleteTask
+                        taskId={task.id}
+                        taskTitle={task.title}
+                        criteria={sopStep(task.stepId)?.closes ?? []}
+                        closure={task.closure}
+                      />
+                    </div>
+                  </details>
+                </li>
+              ))}
             </ol>
           </section>
         ))

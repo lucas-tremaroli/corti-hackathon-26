@@ -1,7 +1,9 @@
 import { Heading, Text } from "@radix-ui/themes";
 import { AssignFact } from "@/components/assign-fact";
 import { Rail } from "@/components/rail";
+import { RailProfile } from "@/components/rail-profile";
 import { Shell } from "@/components/shell";
+import { activeClinician } from "@/lib/profile";
 import { orphanFacts, ORPHAN_FACTS } from "@/lib/queries";
 import styles from "./graph.module.css";
 
@@ -9,10 +11,10 @@ import styles from "./graph.module.css";
 export const dynamic = "force-dynamic";
 
 export default async function GraphPage() {
-  const orphans = await orphanFacts();
+  const [orphans, current] = await Promise.all([orphanFacts(), activeClinician()]);
 
   return (
-    <Shell rail={<Rail current="/graph" />}>
+    <Shell rail={<Rail current="/graph" clinicianId={current?.id} />} profile={<RailProfile />}>
       <header className={styles.head}>
         <Heading as="h1" size="4" weight="medium">
           Said, and nothing came of it

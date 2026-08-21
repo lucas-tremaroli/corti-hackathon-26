@@ -2,13 +2,21 @@ import type { Clinician } from "../lib/model";
 import { close, rows } from "../lib/graph";
 import { ROLES } from "../lib/sop";
 
-// The people work is handed between. One per role, which is all a demo needs —
-// the graph cares that a task has an owner, not how many owners exist.
-// Jane Smith's actual care team, from the sample chart.
+// The two people the handoff runs between, from Jane Smith's own chart. Two is
+// the whole point: one profile hands over, the other picks up.
 const CLINICIANS: Clinician[] = [
-  { id: "cardiology", name: "Dr Chen", role: "Cardiology", org: "Springfield General Hospital" },
-  { id: "gp", name: "Dr Vasquez", role: "GP", org: "Springfield Family Medicine" },
-  { id: "imaging", name: "Springfield Imaging", role: "Imaging", org: "Springfield Imaging Center" },
+  {
+    id: "cardiology",
+    name: "Dr Michael Chen",
+    role: "Cardiology",
+    org: "Springfield General Hospital",
+  },
+  {
+    id: "gp",
+    name: "Dr Elena Vasquez",
+    role: "GP",
+    org: "Springfield Family Medicine",
+  },
 ];
 
 // Anything the seed creates, the seed can throw away. Everything else in the
@@ -22,7 +30,7 @@ await rows(
 );
 
 for (const person of CLINICIANS) {
-  console.log(`${person.name.padEnd(12)} ${ROLES[person.role].long}`);
+  console.log(`${person.name.padEnd(20)} ${ROLES[person.role].long}`);
 }
 console.log(`\n${CLINICIANS.length} clinicians. The conversation comes from the app.`);
 

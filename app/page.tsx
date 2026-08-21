@@ -2,7 +2,9 @@ import { Heading, Text } from "@radix-ui/themes";
 import { HandoffDraft } from "@/components/handoff-draft";
 import { Ingest } from "@/components/ingest";
 import { Rail } from "@/components/rail";
+import { RailProfile } from "@/components/rail-profile";
 import { Shell } from "@/components/shell";
+import { activeClinician } from "@/lib/profile";
 import { latestConversation } from "@/lib/queries";
 import styles from "./page.module.css";
 
@@ -11,10 +13,10 @@ import styles from "./page.module.css";
 export const dynamic = "force-dynamic";
 
 export default async function HandoffPage() {
-  const conversation = await latestConversation();
+  const [conversation, current] = await Promise.all([latestConversation(), activeClinician()]);
 
   return (
-    <Shell rail={<Rail current="/" />}>
+    <Shell rail={<Rail current="/" clinicianId={current?.id} />} profile={<RailProfile />}>
       {conversation === null ? (
         <>
           <header className={styles.head}>

@@ -1,48 +1,40 @@
 import { Text } from "@radix-ui/themes";
 import Link from "next/link";
-import { clinicians, openCounts } from "@/lib/queries";
+import { openCounts } from "@/lib/queries";
 import styles from "./rail.module.css";
 
+const DESTINATIONS = [
+  { href: "/", label: "Handoff" },
+  { href: "/inbox", label: "Inbox" },
+  { href: "/graph", label: "Graph" },
+];
+
 /**
- * Three destinations, in the order the work moves: the handoff being written,
- * the inboxes it lands in, and the facts that reached neither.
+ * Three destinations, in the order the work moves: the handoff being written, the
+ * inbox it lands in, and the facts that reached neither. Whose inbox is a question
+ * for the profile at the bottom of the rail, not for this list.
  */
-export async function Rail({ current }: { current: string }) {
-  const [people, counts] = await Promise.all([clinicians(), openCounts()]);
+export async function Rail({ current, clinicianId }: { current: string; clinicianId?: string }) {
+  const counts = await openCounts();
+  const open = clinicianId ? counts.get(clinicianId) : undefined;
 
   return (
-    <>
-      <div className={styles.group}>
-        <Link href="/" className={styles.item} aria-current={current === "/" ? "page" : undefined}>
-          <Text size="2">Handoff</Text>
-        </Link>
+    <div className={styles.group}>
+      {DESTINATIONS.map(({ href, label }) => (
         <Link
-          href="/graph"
+          key={href}
+          href={href}
           className={styles.item}
-          aria-current={current === "/graph" ? "page" : undefined}
+          aria-current={current === href ? "page" : undefined}
         >
-          <Text size="2">Graph</Text>
-        </Link>
-      </div>
-
-      <div className={styles.group}>
-        <Text size="1" weight="medium" className={styles.label}>
-          Inboxes
-        </Text>
-        {people.map((person) => (
-          <Link
-            key={person.id}
-            href={`/inbox?clinician=${person.id}`}
-            className={styles.item}
-            aria-current={current === person.id ? "page" : undefined}
-          >
-            <Text size="2">{person.name}</Text>
+          <Text size="2">{label}</Text>
+          {href === "/inbox" && open !== undefined && open > 0 && (
             <Text size="1" className={styles.count}>
-              {counts.get(person.id) ?? "–"}
+              {open}
             </Text>
-          </Link>
-        ))}
-      </div>
-    </>
+          )}
+        </Link>
+      ))}
+    </div>
   );
 }

@@ -25,30 +25,33 @@ export const clinicians = () =>
     ORDER BY c.name`);
 
 /** The handoffs sent to one clinician, newest first, with what they carry. */
-export async function inboxFor(clinicianId: string) {
-  const found = await rows<{
-    handoff: Handoff;
-    patient: Patient;
-    from: Clinician;
-    facts: Fact[];
-    tasks: RawTask[];
-  }>(
-    `MATCH (from:Clinician)-[:HANDED]->(h:Handoff)-[:TO]->(to:Clinician {id: $clinicianId})
+export const inboxFor = (clinicianId: string) =>
+  rows<{ handoff: Handoff; patient: Patient; from: Clinician; facts: Fact[] }>(
+    `MATCH (from:Clinician)-[:HANDED]->(h:Handoff)-[:TO]->(:Clinician {id: $clinicianId})
      MATCH (h)-[:ABOUT]->(p:Patient)
      WHERE h.sent
      OPTIONAL MATCH (h)-[:CARRIES]->(f:Fact)
-     OPTIONAL MATCH (t:Task)-[:OWNED_BY]->(to), (t)-[:FOR]->(p)
      RETURN properties(h) AS handoff, properties(p) AS patient, properties(from) AS from,
-            collect(DISTINCT properties(f)) AS facts,
-            collect(DISTINCT properties(t)) AS tasks
+            collect(DISTINCT properties(f)) AS facts
      ORDER BY handoff.at DESC`,
     { clinicianId },
   );
 
-  return found.map((row) => ({
-    ...row,
-    tasks: row.tasks.map(unpackTask).sort((a, b) => a.dueAt.localeCompare(b.dueAt)),
-  }));
+/**
+ * The work this clinician owns, whoever handed it to them and whether anyone did.
+ * Reached through FOR, so gap tasks — which have no fact behind them — are in here
+ * too. They are the ones that matter.
+ */
+export async function tasksOwnedBy(clinicianId: string) {
+  const found = await rows<{ task: RawTask; patient: Patient }>(
+    `MATCH (t:Task)-[:OWNED_BY]->(:Clinician {id: $clinicianId})
+     MATCH (t)-[:FOR]->(p:Patient)
+     WHERE t.status <> 'done'
+     RETURN properties(t) AS task, properties(p) AS patient
+     ORDER BY t.dueAt`,
+    { clinicianId },
+  );
+  return found.map((row) => ({ ...row, task: unpackTask(row.task) }));
 }
 
 /** Open work per clinician, for the counts beside each inbox in the rail. */

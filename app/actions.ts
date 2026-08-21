@@ -2,6 +2,8 @@
 
 import { readFile } from "node:fs/promises";
 import { refresh } from "next/cache";
+import { cookies } from "next/headers";
+import { PROFILE_COOKIE } from "@/lib/profile";
 import { createInteraction, extractFacts, predictCodes } from "@/lib/corti";
 import { draftSbar, type Sbar } from "@/lib/handoff";
 import type { NoteKind } from "@/lib/model";
@@ -87,6 +89,15 @@ export async function sendHandoff(id: string, sbar: Sbar) {
 export async function acceptHandoff(id: string) {
   await write.acceptHandoff(id);
   refresh();
+}
+
+/**
+ * Sign in as the other clinician. Setting a cookie in a server action re-renders
+ * the tree on its own, so every screen follows the switch without a navigation.
+ */
+export async function switchProfile(clinicianId: string) {
+  const jar = await cookies();
+  jar.set(PROFILE_COOKIE, clinicianId, { path: "/", httpOnly: true, sameSite: "lax" });
 }
 
 export async function assignFact(input: {

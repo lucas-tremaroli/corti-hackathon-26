@@ -5,7 +5,15 @@ import { type ReactNode, useState } from "react";
 import { Toasts } from "./toast";
 import styles from "./shell.module.css";
 
-export function Shell({ rail, children }: { rail: ReactNode; children: ReactNode }) {
+export function Shell({
+  rail,
+  profile,
+  children,
+}: {
+  rail: ReactNode;
+  profile?: ReactNode;
+  children: ReactNode;
+}) {
   const [open, setOpen] = useState(true);
 
   return (
@@ -30,6 +38,10 @@ export function Shell({ rail, children }: { rail: ReactNode; children: ReactNode
         </div>
 
         {open && rail}
+
+        {/* Stays whether the rail is open or shut: who you are signed in as is
+            not a detail you collapse away. */}
+        {profile && <div className={styles.railBottom}>{profile}</div>}
       </nav>
 
       <main className={styles.main}>{children}</main>

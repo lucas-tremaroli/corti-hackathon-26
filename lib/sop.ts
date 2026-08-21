@@ -1,11 +1,10 @@
 import { chat } from "./corti";
 
-export type Role = "Cardiology" | "GP" | "Imaging";
+export type Role = "Cardiology" | "GP";
 
 export const ROLES: Record<Role, { short: string; long: string }> = {
   Cardiology: { short: "Cardiology", long: "Cardiology" },
   GP: { short: "GP", long: "Primary care" },
-  Imaging: { short: "Imaging", long: "Imaging" },
 };
 
 export type SopStep = {
@@ -70,7 +69,9 @@ export const NEW_AF_DISCHARGE = {
     {
       id: "echocardiogram",
       title: "Echocardiogram",
-      role: "Imaging",
+      // The scan is somebody else's machine, but reading it is cardiology's job,
+      // and reading it is what these criteria ask for.
+      role: "Cardiology",
       dueInDays: 21,
       trigger: "Newly diagnosed atrial fibrillation without a recent echocardiogram.",
       closes: [

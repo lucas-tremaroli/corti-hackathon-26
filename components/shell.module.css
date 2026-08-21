@@ -1,19 +1,33 @@
+/* dvh rather than a percentage: Radix's Theme wrapper sits between body and this
+   with an auto height, so a percentage here resolves against nothing and gets
+   dropped. dvh also survives the address bar sliding away on a phone. */
 .shell {
   display: grid;
   grid-template-columns: 13rem minmax(0, 1fr);
-  min-height: 100%;
+  min-height: 100dvh;
 }
 
 .shell[data-open="false"] {
   grid-template-columns: 3rem minmax(0, 1fr);
 }
 
+/* Held to the viewport so the account at its foot stays reachable however far
+   the inbox scrolls — align-self: start keeps the grid from stretching it, which
+   would break the sticky. */
 .rail {
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100dvh;
+  overflow-y: auto;
   border-right: 1px solid var(--gray-4);
   padding: 1.25rem 0.75rem;
   display: flex;
   flex-direction: column;
   gap: 1.75rem;
+  /* So the profile at the bottom can drop its name when the rail narrows,
+     without anyone passing the open state across a server boundary. */
+  container-type: inline-size;
 }
 
 .railTop {
@@ -22,6 +36,14 @@
   justify-content: space-between;
   gap: 0.5rem;
   min-height: 1.75rem;
+}
+
+/* Pinned to the floor of the rail, where an account lives in every tool a
+   clinician already uses. */
+.railBottom {
+  margin-top: auto;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--gray-4);
 }
 
 .wordmark {
@@ -71,9 +93,14 @@
   background: currentColor;
 }
 
+/* Fills what the rail leaves, up to a limit, then centres rather than hugging
+   the rail with a lopsided gutter beside it. Prose inside still holds its own
+   42rem measure — this width is for the rows, not the sentences. */
 .main {
+  width: 100%;
+  max-width: 72rem;
+  margin-inline: auto;
   padding: 1.75rem 2rem 6rem;
-  max-width: 56rem;
 }
 
 @media (max-width: 40rem) {
@@ -82,7 +109,11 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  /* Stacked, the rail is a header — pinning it would eat the screen. */
   .rail {
+    position: static;
+    height: auto;
+    overflow-y: visible;
     border-right: none;
     border-bottom: 1px solid var(--gray-4);
   }
