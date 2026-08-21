@@ -1,0 +1,70 @@
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  padding: 0.375rem;
+  border: none;
+  border-radius: var(--radius-2);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.trigger:hover {
+  background: var(--gray-3);
+}
+
+.trigger:focus-visible {
+  outline: 2px solid var(--gray-8);
+  outline-offset: -2px;
+}
+
+/* Initials, not a photograph. There is no real person behind this account and
+   the interface should not pretend otherwise. */
+.avatar {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: var(--gray-5);
+  color: var(--gray-12);
+  font-size: var(--font-size-1);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.name,
+.org {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.name {
+  color: var(--gray-12);
+}
+
+.org {
+  color: var(--gray-9);
+}
+
+/* Collapsed rail: the avatar carries it alone. */
+@container (max-width: 8rem) {
+  .who {
+    display: none;
+  }
+
+  .trigger {
+    justify-content: center;
+  }
+}
