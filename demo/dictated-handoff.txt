@@ -1,22 +1,4 @@
-A handoff for one voice, to dictate into the console on /. Read aloud only the
-part below the line — everything above it is a note to whoever is testing.
-
-Sign in as Dr Michael Chen, pick Jane Smith, and dictate. It should produce:
-
-  coding        atrial fibrillation, selecting the AF discharge protocol
-  covered       echocardiogram, rhythm monitoring, rate control review
-  gap           anticoagulation decision — raised, then parked
-  gap           baseline bloods — never mentioned at all
-  recipient     Dr Elena Vasquez, on "handing Jane Smith over to Dr Vasquez"
-  asked for     the Portugal trip, which no protocol covers
-
-The rate control line is deliberately said out loud as well as being in the
-protocol, so you can see both a protocol task and a spoken one land on it.
-
-------------------------------------------------------------------------------
-
-This is Michael Chen, cardiology. I'm handing Jane Smith over to Dr Vasquez in
-primary care.
+I'm handing Jane Smith over to Dr Vasquez in primary care.
 
 Mrs Smith is sixty-six. She came in on Monday with palpitations and was found to
 be in new-onset atrial fibrillation, with a rate of one hundred and thirty. We

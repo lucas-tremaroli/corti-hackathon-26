@@ -105,6 +105,15 @@
   background: var(--gray-8);
 }
 
+/* Pushed to the right and set in the mono face, like every other machine-measured
+   number on screen — it is a readout, not part of the sentence. */
+.elapsed {
+  margin-left: auto;
+  font-family: var(--code-font-family);
+  font-variant-numeric: tabular-nums;
+  color: var(--gray-9);
+}
+
 .items {
   display: flex;
   flex-direction: column;

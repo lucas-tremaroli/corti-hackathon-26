@@ -9,6 +9,7 @@
     "lint": "eslint",
     "check": "bun scripts/check.ts",
     "check:graph": "bun scripts/check-graph-view.ts",
+    "check:patients": "bun scripts/check-patients.ts",
     "seed": "bun scripts/seed.ts"
   },
   "dependencies": {

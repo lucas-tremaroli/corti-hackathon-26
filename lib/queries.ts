@@ -78,18 +78,74 @@ export async function openCounts() {
 }
 
 /**
- * The predicate the product exists for: a fact said in a conversation that
- * reached no task and no handoff. The dizziness that never got to the GP.
+ * Corti's fact groups that record what *is* rather than what is owed: findings,
+ * history, results, the patient's own details.
+ *
+ * Nothing comes of a date of birth, and nothing should. Counting those as gaps
+ * inflated the number this product argues from — eleven, of which nine were
+ * things like "66-year-old female." and "Heart rate 130."
+ *
+ * A denylist rather than a list of the four that survive it, so a group Corti
+ * adds later counts as a possible gap until somebody decides otherwise. Same
+ * bias as classifySteps(): a false gap is a redundant prompt, a false "claimed"
+ * silently drops care. `bun scripts/fact-groups.ts` prints the live taxonomy
+ * against this split.
+ */
+// Every group here is a property of the patient — something that is true of
+// them, which nothing can "come of".
+//
+// `assessment` is deliberately NOT here, and must not be added back. It reads
+// descriptive, but a clinical conclusion routinely carries an implied action:
+// "Let's park that one" came back from Corti as the assessment "Anticoagulation
+// would normally be considered based on risk score." Denylisting it hid the one
+// deferral this whole demo is about, and scripts/check.ts fails if it returns.
+export const DESCRIPTIVE_GROUPS = [
+  "abnormal-physical-findings",
+  "allergies",
+  "chief-complaint",
+  "demographics",
+  "denials-of-symptoms",
+  "family-history",
+  "functional-status",
+  "history-of-present-illness",
+  "imaging-results",
+  "laboratory-results",
+  "medications-prior-to-visit",
+  "normal-physical-findings",
+  "past-medical-history",
+  "social-history",
+  "vital-signs",
+];
+
+// Wrapped, because this query is displayed on /graph and a 350-character line
+// is not an argument anybody can read.
+const DESCRIPTIVE_LITERAL = `[${DESCRIPTIVE_GROUPS.reduce<string[]>((lines, group) => {
+  const quoted = `'${group}'`;
+  const last = lines.length - 1;
+  if (last >= 0 && lines[last].length + quoted.length + 2 <= 72) {
+    lines[last] = `${lines[last]}, ${quoted}`;
+  } else {
+    lines.push(quoted);
+  }
+  return lines;
+}, []).join(",\n       ")}]`;
+
+/**
+ * The predicate the product exists for: something said in a conversation that
+ * asked for work, and reached no task and no handoff. The dizziness that never
+ * got to the GP.
  *
  * A draft carries nothing — nobody has read it. Only a handoff that was actually
  * sent counts as having passed the fact on.
  *
  * Takes the Cypher variable to bind against, because the list and the graph
  * reach a fact under different names. One source of truth: if these two ever
- * disagree, the picture and the list underneath it disagree.
+ * disagree, the picture and the number over it disagree.
  */
 export const unclaimed = (v: string) =>
-  `NOT (${v})<-[:BECAUSE_OF]-(:Task) AND NOT (${v})<-[:CARRIES]-(:Handoff {sent: true})`;
+  `NOT (${v})<-[:BECAUSE_OF]-(:Task)
+      AND NOT (${v})<-[:CARRIES]-(:Handoff {sent: true})
+      AND NOT ${v}.group IN ${DESCRIPTIVE_LITERAL}`;
 
 // Exported because the graph screen puts it on the wall — it is the argument.
 export const ORPHAN_FACTS = `

@@ -23,9 +23,33 @@ const CLINICIANS: Clinician[] = [
 // graph is either the demo or somebody's actual work.
 await rows("MATCH (n) DETACH DELETE n");
 
-// The patient exists before the conversation does, the way a chart does. It also
-// means nobody has to type a name into the app to start recording.
-const PATIENTS = [{ id: "jane-smith", name: "Jane Smith" }];
+/**
+ * The patient exists before the conversation does, the way a chart does. It also
+ * means nobody has to type a name into the app to start recording — the
+ * dictation names them and the console matches against this list.
+ *
+ * Corti's synthetic set, names only: a roster is people, and everything clinical
+ * about them arrives by being said out loud. Transcribed here rather than read
+ * off disk because the source folder only exists on one machine, and a seed that
+ * fails for the next person is not a fixture.
+ *
+ * Eleven, not one, because matching "Mrs Smith" against a list of one proves
+ * nothing about the matching. Thomas Baker answers to Tom, which is the case
+ * that catches a matcher only comparing whole strings.
+ */
+const PATIENTS = [
+  { id: "aisha-rahman", name: "Aisha Rahman" },
+  { id: "david-kim", name: "David Kim" },
+  { id: "elena-petrova", name: "Elena Petrova" },
+  { id: "harold-mitchell", name: "Harold Mitchell" },
+  { id: "jamal-wright", name: "Jamal Wright" },
+  { id: "jane-smith", name: "Jane Smith" },
+  { id: "lily-chen", name: "Lily Chen" },
+  { id: "maria-gonzalez", name: "Maria Gonzalez" },
+  { id: "robert-okafor", name: "Robert Okafor" },
+  { id: "sarah-nguyen", name: "Sarah Nguyen" },
+  { id: "thomas-baker", name: "Thomas Baker" },
+];
 
 await rows(
   `UNWIND $clinicians AS row
@@ -45,6 +69,9 @@ for (const person of CLINICIANS) {
 for (const patient of PATIENTS) {
   console.log(`${patient.name.padEnd(20)} patient`);
 }
-console.log(`\n${CLINICIANS.length} clinicians, ${PATIENTS.length} patient. The conversation comes from the app.`);
+console.log(
+  `\n${CLINICIANS.length} clinicians, ${PATIENTS.length} patients. ` +
+    `The conversation comes from the app.`,
+);
 
 await close();

@@ -44,6 +44,16 @@ export async function saveConversation(input: {
 }
 
 /**
+ * A patient somebody named out loud who had no record.
+ *
+ * CREATE rather than the MERGE saveConversation uses: a MERGE on a colliding id
+ * would quietly rename an existing chart to whatever was just dictated. Here the
+ * uniqueness constraint should throw instead.
+ */
+export const savePatient = (input: { id: string; name: string }) =>
+  rows("CREATE (p:Patient {id: $id, name: $name})", input);
+
+/**
  * The protocol's tasks. A covered step hangs off the fact that covered it; a gap
  * gets a task with no fact behind it, and leaves the fact it should have come
  * from with nothing pointing at it.

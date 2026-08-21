@@ -10,7 +10,11 @@ import { saveConversation, saveTasks } from "../lib/writes";
 
 // The demo script itself, so a change to what gets said on stage is a change to
 // what this asserts. Four protocol steps arranged out loud, two raised and dropped.
-const transcript = readFileSync("demo/discharge.txt", "utf8");
+//
+// The dictated handoff, matching what loadDemoTranscript() feeds the console —
+// asserting against the consultation transcript instead would guard a flow this
+// screen no longer has.
+const transcript = readFileSync("demo/dictated-handoff.txt", "utf8");
 
 const [facts, codes] = await Promise.all([extractFacts(transcript), predictCodes(transcript)]);
 
@@ -63,13 +67,34 @@ const ROSTER: Clinician[] = [
   { id: "cardiology", name: "Dr Michael Chen", role: "Cardiology", org: "Springfield General Hospital" },
   { id: "gp", name: "Dr Elena Vasquez", role: "GP", org: "Springfield Family Medicine" },
 ];
-const intent = await readHandoffIntent(transcript, ROSTER);
+// The speaker is the signed-in profile, so cardiology is not a candidate here —
+// the same filter app/actions.ts applies before calling this.
+const CANDIDATES = ROSTER.filter((c) => c.id !== "cardiology");
+const PATIENT_ROSTER = [
+  { id: "jane-smith", name: "Jane Smith" },
+  // A second name close enough to be got wrong: the roster is matched on, not
+  // guessed at, and a handoff filed against the wrong patient is the worst
+  // failure this system has.
+  { id: "john-smythe", name: "John Smythe" },
+];
+
+const intent = await readHandoffIntent(transcript, CANDIDATES, PATIENT_ROSTER);
+console.log(`patient:   ${intent.patientId ?? "none"}`);
 console.log(`recipient: ${intent.recipientId ?? "none"} — "${intent.quote}"`);
 for (const r of intent.requests) console.log(`  asks for: ${r.title} (${r.dueInDays}d)`);
 assert.equal(
   intent.recipientId,
   "gp",
   'the discharge says "I\'ve written to your GP" — it is handed to primary care',
+);
+
+// Nobody types the patient in any more, so this is the whole safety of the
+// screen. The transcript only ever says "Mrs Smith" — never "Jane" — and the
+// blood thinner belongs to her sister, who is not a patient here.
+assert.equal(
+  intent.patientId,
+  "jane-smith",
+  '"Mrs Smith" is the subject throughout — a surname alone has to reach her record',
 );
 // A clinician who is not on the roster is worse than no clinician at all.
 assert.ok(

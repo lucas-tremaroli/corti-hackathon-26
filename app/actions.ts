@@ -8,7 +8,7 @@ import { createInteraction, extractFacts, predictCodes } from "@/lib/corti";
 import { draftSbar, readHandoffIntent, type Request, type Sbar } from "@/lib/handoff";
 import type { NoteKind } from "@/lib/model";
 import { activeClinician } from "@/lib/profile";
-import { clinicians, notesFor, patientById, taskWithNotes } from "@/lib/queries";
+import { clinicians, notesFor, patientById, patients, taskWithNotes } from "@/lib/queries";
 import {
   checkClosure,
   classifySteps,
@@ -29,9 +29,15 @@ import * as write from "@/lib/writes";
 // Every export of a "use server" file has to be a declared async function —
 // an arrow const returning a promise is not recognised as an action.
 
-/** The conversation on file, for when the room is too loud to dictate in. */
+/**
+ * The dictation on file, for when the room is too loud to dictate in.
+ *
+ * A clinician talking to a colleague, not a doctor talking to a patient: this
+ * screen is dictation, and demo/discharge.txt is the consultation an ambient
+ * scribe would hear. Feeding that in tested a flow this screen does not have.
+ */
 export async function loadDemoTranscript() {
-  return readFile("demo/discharge.txt", "utf8");
+  return readFile("demo/dictated-handoff.txt", "utf8");
 }
 
 export async function readFacts(transcript: string) {
@@ -51,23 +57,58 @@ export async function readSteps(codes: string[], facts: { text: string }[]) {
   return classifySteps(sop.steps, facts);
 }
 
-/** Who it is addressed to, and what it asks for. */
+/** Who it is about, who it is addressed to, and what it asks for. */
 export async function readIntent(transcript: string) {
-  return readHandoffIntent(transcript, await clinicians());
+  const [me, roster, people] = await Promise.all([activeClinician(), clinicians(), patients()]);
+  // The speaker is the signed-in profile, never the dictation — so they are not
+  // a candidate recipient, and nobody can be handed their own handoff.
+  return readHandoffIntent(
+    transcript,
+    roster.filter((c) => c.id !== me?.id),
+    people,
+  );
+}
+
+/**
+ * A record for somebody the dictation named who has none.
+ *
+ * Deliberately its own action rather than a side effect of approving: creating a
+ * chart is a decision, and the screen shows the near-matches before you take it.
+ * The id is a uuid like everything else the app creates — the readable ones in
+ * the graph are seeded fixtures, and slugging a name would collide the moment
+ * two people share one.
+ */
+export async function createPatient(name: string) {
+  const clean = name.replace(/\s+/g, " ").trim();
+  if (clean === "") throw new Error("A patient needs a name");
+
+  const patient = { id: crypto.randomUUID(), name: clean };
+  await write.savePatient(patient);
+  refresh();
+  return patient;
+}
+
+/** Who the console can file a handoff against, refreshed after one is added. */
+export async function listPatients() {
+  return patients();
 }
 
 export async function draftHandoff(input: {
-  patientId: string;
+  patientId: string | null;
   codes: string[];
   facts: { text: string }[];
   gapStepIds: string[];
 }) {
-  const [patient, sop] = [await patientById(input.patientId), sopForCodes(input.codes)];
-  if (!patient) throw new Error("No such patient");
+  const sop = sopForCodes(input.codes);
   if (!sop) throw new Error("No protocol matches the codes for this conversation");
 
+  // Drafts without a patient rather than refusing to: the four parts come out of
+  // the facts, and naming the subject is the one thing a clinician can still fix
+  // before approving. Approval is where a patient becomes non-negotiable.
+  const patient = input.patientId ? await patientById(input.patientId) : null;
+
   return draftSbar({
-    patientName: patient.name,
+    patientName: patient?.name ?? "the patient",
     title: sop.name,
     facts: input.facts,
     gaps: input.gapStepIds.map((id) => sopStep(id)?.title ?? id),

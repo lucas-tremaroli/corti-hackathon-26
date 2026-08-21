@@ -25,6 +25,41 @@ run = "docker compose exec neo4j cypher-shell -u neo4j -p careos-dev"
 description = "Apply graph constraints and indexes (idempotent)"
 run = "bun scripts/graph-init.ts"
 
+[tasks.db-seed]
+description = "Wipe the graph and put the people back — clinicians and patients, nothing else"
+run = "bun scripts/seed.ts"
+
+# db-seed alone is enough when the database is already up and has its constraints.
+# This is the one to reach for after db-reset, which throws away the volume and
+# the schema with it, or when you are not sure what state anything is in.
+[tasks.db-fresh]
+description = "From any state to a clean seeded graph: start, apply constraints, wipe, reseed"
+run = """
+docker compose up -d
+# Neo4j takes a few seconds to accept bolt after the container reports started,
+# so a bare `db-reset && db-fresh` would race it. Asks through lib/graph rather
+# than docker exec, so it waits on whatever NEO4J_URI actually points at.
+printf 'waiting for neo4j'
+for _ in $(seq 1 45); do
+  if bun -e 'import {rows,close} from "./lib/graph"; await rows("RETURN 1"); await close();' >/dev/null 2>&1; then
+    printf ' up\\n'
+    break
+  fi
+  printf '.'
+  sleep 1
+done
+bun scripts/graph-init.ts
+bun scripts/seed.ts
+"""
+
+[tasks.db-wipe]
+description = "Delete every node and relationship, leaving an empty graph"
+run = "bun scripts/wipe.ts"
+
+[tasks.db-stats]
+description = "What is in the graph right now, by label and relationship type"
+run = "bun scripts/graph-stats.ts"
+
 [tasks.check]
 description = "Live check against Corti and the graph"
 run = "bun scripts/check.ts"

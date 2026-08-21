@@ -1,7 +1,7 @@
 "use client";
 
 import { Button, Text } from "@radix-ui/themes";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   commitHandoff,
   draftHandoff,
@@ -11,10 +11,11 @@ import {
   readIntent,
   readSteps,
 } from "@/app/actions";
-import type { Request, Sbar as SbarValue } from "@/lib/handoff";
+import type { Intent, Request, Sbar as SbarValue } from "@/lib/handoff";
 import type { Clinician, Patient } from "@/lib/model";
 import type { StepVerdict } from "@/lib/sop";
 import { Dictation } from "./dictation";
+import { NewPatient } from "./new-patient";
 import { Sbar } from "./sbar";
 import { toast } from "./toast";
 import styles from "./handoff-console.module.css";
@@ -27,7 +28,37 @@ type Entry = {
   detail?: string;
   items?: string[];
   state: "running" | "done";
+  /** Corti can take a minute on one step. A counter is the difference between
+      waiting and assuming it has died. */
+  startedAt: number;
+  tookMs?: number;
 };
+
+/**
+ * The wall clock in whole seconds, ticking only while something is in flight so
+ * an idle console is not repainting once a second for nothing.
+ *
+ * useSyncExternalStore rather than state and an effect: the clock is an external
+ * source, and this is the API for reading one without calling Date.now() during
+ * render. Flooring to seconds keeps the snapshot stable between ticks, which is
+ * what stops React from re-rendering in a loop.
+ */
+function useClock(active: boolean) {
+  const subscribe = useCallback(
+    (onTick: () => void) => {
+      if (!active) return () => {};
+      const id = setInterval(onTick, 1000);
+      return () => clearInterval(id);
+    },
+    [active],
+  );
+
+  return useSyncExternalStore(
+    subscribe,
+    () => Math.floor(Date.now() / 1000),
+    () => 0,
+  );
+}
 
 /** What the run has gathered so far. Nothing here is in the graph yet. */
 type Draft = {
@@ -37,6 +68,8 @@ type Draft = {
   requests: Request[];
   sbar: SbarValue;
   recipientId: string | null;
+  /** As dictated. What a new record gets called when nobody on the roster matched. */
+  patientName: string;
 };
 
 /**
@@ -48,11 +81,11 @@ type Progress = {
   facts?: Fact[];
   codes?: string[];
   verdicts?: StepVerdict[];
-  intent?: { recipientId: string | null; quote: string; requests: Request[] };
+  intent?: Intent;
 };
 
 export function HandoffConsole({
-  patients,
+  patients: seeded,
   clinicians,
   me,
 }: {
@@ -60,7 +93,14 @@ export function HandoffConsole({
   clinicians: Clinician[];
   me: Clinician;
 }) {
-  const [patientId, setPatientId] = useState(patients[0]?.id ?? "");
+  // The roster grows on this screen. A patient created mid-run has to be
+  // selectable straight away, and the server component that supplied the list
+  // will not re-render underneath us.
+  const [added, setAdded] = useState<Patient[]>([]);
+  const patients = [...seeded, ...added].sort((a, b) => a.name.localeCompare(b.name));
+  // Empty until the dictation says who this is about. Nobody picks a patient
+  // before speaking — you say the name, the way you would to a colleague.
+  const [patientId, setPatientId] = useState("");
   const [transcript, setTranscript] = useState("");
   const [dictating, setDictating] = useState(false);
   const [entries, setEntries] = useState<Entry[]>([]);
@@ -80,21 +120,33 @@ export function HandoffConsole({
     foot.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, []);
 
+  const running = entries.some((entry) => entry.state === "running");
+  const nowSeconds = useClock(running);
+
   const others = clinicians.filter((c) => c.id !== me.id);
-  const patient = patients.find((p) => p.id === patientId);
   const words = transcript.trim() === "" ? 0 : transcript.trim().split(/\s+/).length;
 
+  // The clock is read inside the updaters rather than in the body: these run
+  // during React's state processing, where reading it is honest, instead of
+  // during render, where it is not.
   function begin(label: string) {
     const id = crypto.randomUUID();
-    setEntries((prev) => [...prev, { id, label, state: "running" }]);
+    setEntries((prev) => [...prev, { id, label, state: "running", startedAt: Date.now() }]);
     return (detail?: string, items?: string[]) =>
       setEntries((prev) =>
-        prev.map((e) => (e.id === id ? { ...e, detail, items, state: "done" } : e)),
+        prev.map((e) =>
+          e.id === id
+            ? { ...e, detail, items, state: "done", tookMs: Date.now() - e.startedAt }
+            : e,
+        ),
       );
   }
 
   function note(label: string, detail?: string) {
-    setEntries((prev) => [...prev, { id: crypto.randomUUID(), label, detail, state: "done" }]);
+    setEntries((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), label, detail, state: "done", startedAt: Date.now() },
+    ]);
   }
 
   function reset() {
@@ -150,20 +202,33 @@ export function HandoffConsole({
       }
 
       if (!intent) {
-        const done = begin("Reading who this is for");
+        const done = begin("Reading who this is about");
         intent = await readIntent(transcript);
         if (stop()) return stopped();
         const to = clinicians.find((c) => c.id === intent?.recipientId);
-        done(to ? `${to.name} · ${to.org}` : "Nobody named — choose a recipient below", [
-          ...(intent.quote ? [`“${intent.quote}”`] : []),
-          ...intent.requests.map((r) => `asked for: ${r.title} (${r.dueInDays} days)`),
-        ]);
+        const about = patients.find((p) => p.id === intent?.patientId);
+        const named = intent.patientName;
+        done(
+          about
+            ? about.name
+            : named !== ""
+              ? `“${named}” — nobody on the roster, add them below`
+              : "No patient named — choose one below",
+          [
+            to ? `handed to ${to.name} · ${to.org}` : "nobody named — choose a recipient below",
+            ...(intent.quote ? [`“${intent.quote}”`] : []),
+            ...intent.requests.map((r) => `asked for: ${r.title} (${r.dueInDays} days)`),
+          ],
+        );
         setProgress((p) => ({ ...p, intent }));
+        // Only on a fresh reading: a correction made by hand survives Retry.
+        setPatientId(intent.patientId ?? "");
       }
 
       const done = begin("Drafting the handoff");
       const sbar = await draftHandoff({
-        patientId,
+        // The reading, not the state — setPatientId above has not flushed yet.
+        patientId: intent.patientId,
         codes,
         facts,
         gapStepIds: verdicts.filter((v) => v.status === "gap").map((v) => v.id),
@@ -178,6 +243,7 @@ export function HandoffConsole({
         requests: intent.requests,
         sbar,
         recipientId: intent.recipientId,
+        patientName: intent.patientName,
       });
       setRecipientId(intent.recipientId ?? "");
     } catch (error) {
@@ -218,24 +284,6 @@ export function HandoffConsole({
   return (
     <div className={styles.console}>
       <div className={styles.stage} data-idle={idle}>
-        <label className={styles.patient}>
-          <Text size="1" className={styles.patientLabel}>
-            Patient
-          </Text>
-          <select
-            className={styles.select}
-            value={patientId}
-            disabled={busy || dictating || entries.length > 0}
-            onChange={(event) => setPatientId(event.target.value)}
-          >
-            {patients.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </label>
-
         <div className={styles.mic} data-live={dictating}>
           <Dictation
             onTranscript={(text) => {
@@ -246,9 +294,7 @@ export function HandoffConsole({
         </div>
 
         <Text size="2" color="gray" className={styles.hint}>
-          {idle
-            ? `Dictate the handoff for ${patient?.name ?? "this patient"}.`
-            : `${words} words dictated.`}
+          {idle ? `Dictate the handoff. Say who it is about.` : `${words} words dictated.`}
         </Text>
 
         {idle && (
@@ -262,12 +308,12 @@ export function HandoffConsole({
               loadDemoTranscript()
                 .then((text) => {
                   setTranscript(text);
-                  note("Loaded the conversation on file", `${text.trim().split(/\s+/).length} words`);
+                  note("Loaded the dictation on file", `${text.trim().split(/\s+/).length} words`);
                 })
                 .catch((error: Error) => toast(error.message, "error"))
             }
           >
-            or use the conversation on file
+            or use the dictation on file
           </Button>
         )}
       </div>
@@ -304,6 +350,14 @@ export function HandoffConsole({
                     {entry.detail}
                   </Text>
                 )}
+                {/* Counts up while it runs, then settles on what it cost. */}
+                <Text size="1" className={styles.elapsed}>
+                  {entry.state === "running"
+                    ? `${Math.max(0, nowSeconds - Math.floor(entry.startedAt / 1000))}s`
+                    : entry.tookMs !== undefined
+                      ? `${Math.round(entry.tookMs / 1000)}s`
+                      : ""}
+                </Text>
               </div>
               {entry.items && entry.items.length > 0 && (
                 <ul className={styles.items}>
@@ -345,6 +399,42 @@ export function HandoffConsole({
             </Button>
           ) : draft ? (
             <>
+              {/* Both read out of the dictation, both correctable, and neither
+                  optional — a handoff filed against the wrong patient is worse
+                  than one that was never sent. */}
+              <label className={styles.recipient}>
+                <Text size="1" className={styles.patientLabel}>
+                  About
+                </Text>
+                <select
+                  className={styles.select}
+                  value={patientId}
+                  onChange={(event) => setPatientId(event.target.value)}
+                >
+                  <option value="">Choose a patient…</option>
+                  {patients.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {/* Only when the reading matched nobody. With a patient already
+                  settled there is nothing to create, and offering it anyway is
+                  how duplicate charts get made. */}
+              {patientId === "" && (
+                <NewPatient
+                  heardName={draft.patientName}
+                  patients={patients}
+                  onChose={(patient) => {
+                    setAdded((prev) =>
+                      prev.some((p) => p.id === patient.id) ? prev : [...prev, patient],
+                    );
+                    setPatientId(patient.id);
+                  }}
+                />
+              )}
               <label className={styles.recipient}>
                 <Text size="1" className={styles.patientLabel}>
                   Hand to
@@ -371,7 +461,7 @@ export function HandoffConsole({
                 size="2"
                 variant="surface"
                 color="gray"
-                disabled={recipientId === ""}
+                disabled={recipientId === "" || patientId === ""}
                 onClick={approve}
               >
                 Approve and send

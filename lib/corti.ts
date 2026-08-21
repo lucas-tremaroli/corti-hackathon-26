@@ -83,11 +83,46 @@ export async function browserCredentials() {
 
 // Corti Models is OpenAI-compatible and lives on its own host; the SDK has no
 // client for it, so this one stays a raw fetch.
-// Measured at 3–20s for these prompts. Past that it is not slow, it is stuck —
-// and a request with no deadline is a board that never paints, with nothing on
-// screen to say so. Long enough to survive a bad minute, short enough to retry
-// inside a demo beat.
-const CHAT_TIMEOUT_MS = 45_000;
+
+/**
+ * corti-s1 is the largest model the tenant offers — there is nothing bigger to
+ * reach for. What there is, is a non-reasoning "instant" variant of the same
+ * family, and on this workload it is the whole difference.
+ *
+ * Measured on the demo dictation, corti-s1 against corti-s1-instant:
+ *
+ *   classifySteps      21.8s / 39.5s   →  2.2s / 1.9s    identical verdicts
+ *   readHandoffIntent         6.7s     →  1.5s           identical
+ *   checkClosure (deferred)  39.9s     →  1.7s           correctly refuses to close
+ *   checkClosure (done)      13.6s     →  1.8s           correctly closes
+ *   draftSbar                 7.7s     →  2.5s           corti-s1 writes it better
+ *
+ * So the split is by what the answer is, not by how much it matters. Every
+ * structured judgement — a verdict, a name match, met or not met — comes back
+ * the same and roughly fifteen times faster. The one place the small model
+ * shows is prose: it filed a discharge plan under Assessment, and the four
+ * parts landing in the right places is most of what an SBAR is for.
+ */
+export const CHAT_MODELS = {
+  /** A verdict, a match, a met-or-not. Same answers, a fraction of the wait. */
+  fast: "corti-s1-instant",
+  /** Sentences a clinician reads. Worth the seconds. */
+  prose: "corti-s1",
+} as const;
+
+// Forces every call onto one model, for timing the family against itself
+// without editing code.
+const FORCED_MODEL = process.env.CORTI_CHAT_MODEL;
+
+// The prose model took 37s once and 77s the next on an identical prompt — and
+// that 77s was 45s of waiting, an abort, and a retry that then succeeded in 30s.
+// A limit inside the spread of what the call actually costs protects nothing; it
+// just guarantees we throw away most of a good answer and pay for it twice.
+//
+// So this is a limit for a call that is genuinely never coming back, not a
+// budget for a slow one. Progress is reported per step on screen, which is what
+// makes a long wait legible.
+const CHAT_TIMEOUT_MS = 120_000;
 
 // Three goes, with a pause between them. An immediate retry after a 500 asks the
 // same overloaded thing the same question a millisecond later, which is how a
@@ -96,7 +131,11 @@ const CHAT_TIMEOUT_MS = 45_000;
 const ATTEMPTS = 3;
 const backoff = (attempt: number) => new Promise((r) => setTimeout(r, attempt * 1500));
 
-export async function chat<T>(prompt: string, attempt = 0): Promise<T> {
+export async function chat<T>(
+  prompt: string,
+  model: string = CHAT_MODELS.fast,
+  attempt = 0,
+): Promise<T> {
   const { tenant, environment } = cfg();
   const last = attempt >= ATTEMPTS - 1;
   let res: Response;
@@ -110,7 +149,7 @@ export async function chat<T>(prompt: string, attempt = 0): Promise<T> {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "corti-s1",
+        model: FORCED_MODEL ?? model,
         // Same conversation must produce the same board twice running.
         temperature: 0,
         response_format: { type: "json_object" },
@@ -120,14 +159,14 @@ export async function chat<T>(prompt: string, attempt = 0): Promise<T> {
   } catch (error) {
     if (last) throw new Error(`Corti chat gave up after ${CHAT_TIMEOUT_MS / 1000}s: ${error}`);
     await backoff(attempt + 1);
-    return chat<T>(prompt, attempt + 1);
+    return chat<T>(prompt, model, attempt + 1);
   }
 
   // This call is the demo. It 500s occasionally and the identical prompt then
   // succeeds, so back off and ask again rather than a dead board on stage.
   if (res.status >= 500 && !last) {
     await backoff(attempt + 1);
-    return chat<T>(prompt, attempt + 1);
+    return chat<T>(prompt, model, attempt + 1);
   }
   if (!res.ok) {
     // A 500 from this endpoint usually carries no body at all, so the status
@@ -147,7 +186,7 @@ export async function chat<T>(prompt: string, attempt = 0): Promise<T> {
   if (parsed) return parsed as T;
   if (last) throw new Error(`Corti chat returned no usable JSON: ${String(content).slice(0, 200)}`);
   await backoff(attempt + 1);
-  return chat<T>(prompt, attempt + 1);
+  return chat<T>(prompt, model, attempt + 1);
 }
 
 function tryParse(text: string) {
